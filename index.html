@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="google-site-verification" content="A2unCFWXldS0fyKqPt6eBJwuPM3qJKaku1UzaCAD13U" />
 <title>אות ועוד - אתר הספרים הגדול</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -12,9 +11,25 @@
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script type="text/javascript">
   (function() {
-    // החלף את YOUR_PUBLIC_KEY במפתח הציבורי שלך מ-EmailJS (נמצא תחת Account -> Public Key)
     emailjs.init("HhepDMmoycLySE0lN");
   })();
+</script>
+
+<!-- Firebase - לקריאת ספריית הספרים המשותפת בזמן אמת -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script type="text/javascript">
+  const firebaseConfig = {
+    apiKey: "AIzaSyCmxf4OixIGrEDjipasxj4QOjTny2oGkMA",
+    authDomain: "logi3-e3073.firebaseapp.com",
+    databaseURL: "https://logi3-e3073-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "logi3-e3073",
+    storageBucket: "logi3-e3073.firebasestorage.app",
+    messagingSenderId: "982842806246",
+    appId: "1:982842806246:web:bccd4ce48b158445111027"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const booksRef = firebase.database().ref('books');
 </script>
 
 <style>
@@ -281,26 +296,23 @@
     ['#4a4a4a','#6f6f6f']
   ];
 
-  const defaultBooks = [];
-
-  function loadBooks(){
-    const raw = localStorage.getItem('otveod_books_v2');
-    if(!raw){
-      localStorage.setItem('otveod_books_v2', JSON.stringify(defaultBooks));
-      return defaultBooks.slice();
-    }
-    try{ return JSON.parse(raw); }catch(e){ return defaultBooks.slice(); }
-  }
-  function saveBooks(books){ localStorage.setItem('otveod_books_v2', JSON.stringify(books)); }
-
   function loadBookmarks(){
     const raw = localStorage.getItem('otveod_bookmarks_v2');
     try{ return raw ? JSON.parse(raw) : []; }catch(e){ return []; }
   }
   function saveBookmarks(list){ localStorage.setItem('otveod_bookmarks_v2', JSON.stringify(list)); }
 
-  let books = loadBooks();
+  let books = [];
   let bookmarks = loadBookmarks();
+
+  // מאזין בזמן אמת ל-Firebase: כל שינוי שהמנהל עושה באתר הניהול מופיע כאן מיד אצל כולם
+  booksRef.on('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    books = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+    renderCount();
+    if(document.getElementById('library').classList.contains('active')) renderLibrary();
+    if(document.getElementById('bookmarks').classList.contains('active')) renderBookmarks();
+  });
 
   function renderCount(){
     document.getElementById('bookCount').textContent = books.length;
@@ -338,7 +350,7 @@
     grid.innerHTML = books.map(b => bookCardHTML(b, bookmarks.includes(b.id))).join('');
     grid.querySelectorAll('.star-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id = Number(btn.dataset.id);
+        const id = btn.dataset.id;
         toggleBookmark(id);
       });
     });
@@ -354,7 +366,7 @@
     grid.innerHTML = marked.map(b => bookCardHTML(b, true)).join('');
     grid.querySelectorAll('.star-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id = Number(btn.dataset.id);
+        const id = btn.dataset.id;
         toggleBookmark(id);
         renderBookmarks();
       });
@@ -489,32 +501,8 @@
     setTimeout(()=> toast.classList.remove('show'), 2500);
   });
 
-  function checkApprovalURL() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('approve') === 'true') {
-      const title = urlParams.get('title');
-      const author = urlParams.get('author');
-      const desc = urlParams.get('desc');
-      const color = parseInt(urlParams.get('color')) || 0;
-
-      if (title && author) {
-        const approve = confirm(`התקבלה בקשה להוספת ספר חדש!\n\nשם הספר: ${title}\nסופר: ${author}\nתיאור: ${desc}\n\nהאם לאשר ולהוסיף אותו לספרייה?`);
-        if (approve) {
-          const newBook = { id: Date.now(), title, author, desc, color };
-          books.push(newBook);
-          saveBooks(books);
-          renderCount();
-          renderLibrary();
-          alert('הספר אושר ונוסף בהצלחה!');
-        }
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-      }
-    }
-  }
-
   renderCount();
   routeFromHash();
-  checkApprovalURL();
 })();
 </script>
 </body>
