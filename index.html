@@ -460,6 +460,11 @@
       color: color
     };
 
+    // שמירת ההצעה גם ב-Firebase כדי שתופיע במסך הניהול לאישור
+    firebase.database().ref('suggestions').push({
+      title, author, desc, color, date: new Date().toISOString()
+    });
+
     emailjs.send('service_tomyshi', 'template_xyeyjla', templateParams)
       .then(() => {
         const toast = document.getElementById('addToast');
