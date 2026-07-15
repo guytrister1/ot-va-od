@@ -1,3079 +1,520 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מלון גומא - סימולטור תלת-ממדי</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אות ועוד - אתר הספרים הגדול</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
 
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-            cursor: pointer;
-        }
+<!-- טעינת ספריית EmailJS הרשמית -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script type="text/javascript">
+  (function() {
+    // החלף את YOUR_PUBLIC_KEY במפתח הציבורי שלך מ-EmailJS (נמצא תחת Account -> Public Key)
+    emailjs.init("HhepDMmoycLySE0lN");
+  })();
+</script>
 
-        #ui-layer {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            backdrop-filter: blur(5px);
-            max-width: 300px;
-            border: 2px solid #fbc531;
-            transform-origin: top right;
-        }
-        body.phone-mode #ui-layer {
-            transform: scale(0.5);
-        }
-        body.tablet-mode #ui-layer {
-            transform: scale(0.72);
-        }
+<style>
+  :root{
+    --gray-dark:#9e9e9e;
+    --gray-light:#d6d6d6;
+    --text:#7a7a7a;
+    --text-dark:#4a4a4a;
+    --white:#ffffff;
+    --ribbon:#e02020;
+    --ribbon-dark:#b81717;
+    --blue-1:#1f4fa0;
+    --blue-2:#3a72c9;
+    --gold-1:#d98c2b;
+    --gold-2:#f0ac4e;
+    --border:#e7e7e7;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Rubik', sans-serif;
+    background:var(--white);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  a{text-decoration:none;color:inherit;}
+  button{font-family:inherit;}
 
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: 24px;
-            color: #d63031;
-            text-align: center;
-        }
+  .menu-btn{
+    position:fixed; top:24px; left:24px; z-index:50;
+    width:44px;height:44px;border:none;background:transparent;
+    cursor:pointer; display:flex; flex-direction:column; justify-content:center; gap:6px; align-items:center;
+  }
+  .menu-btn span{display:block;width:26px;height:2px;background:var(--gray-dark);transition:.25s;}
+  .menu-btn.open span:nth-child(1){transform:translateY(8px) rotate(45deg);}
+  .menu-btn.open span:nth-child(2){opacity:0;}
+  .menu-btn.open span:nth-child(3){transform:translateY(-8px) rotate(-45deg);}
 
-        p {
-            margin: 5px 0;
-            color: #2d3436;
-            font-size: 15px;
-            text-align: center;
-        }
+  .menu-panel{
+    position:fixed; top:0; left:0; height:100%; width:260px;
+    background:var(--white); border-left:1px solid var(--border);
+    transform:translateX(-100%); transition:transform .3s ease;
+    z-index:40; padding:100px 32px 32px;
+  }
+  .menu-panel.open{transform:translateX(0);}
+  .menu-panel a{
+    display:block; padding:14px 0; color:var(--text-dark); font-size:18px;
+    border-bottom:1px solid var(--border);
+  }
+  .menu-panel a:hover{color:var(--text);}
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.15); z-index:30;
+    opacity:0; pointer-events:none; transition:opacity .3s;
+  }
+  .overlay.open{opacity:1; pointer-events:auto;}
 
-        .controls {
-            margin-top: 15px;
-            background: #ffeaa7;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            color: #2d3436;
-            border: 1px solid #fdcb6e;
-        }
+  .plus-btn{
+    position:fixed; top:26px; right:34px; z-index:20;
+    font-size:44px; font-weight:300; color:#1a1a1a; background:none; border:none; cursor:pointer;
+    line-height:1;
+  }
 
-        #money-display {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2d1b4e;
-            background: linear-gradient(135deg,#fdf6c9,#f5d76e);
-            border: 2px solid #d4af37;
-            border-radius: 10px;
-            padding: 6px 10px;
-            text-align: center;
-            margin-bottom: 10px;
-        }
+  .ribbon{
+    position:fixed; top:0; right:60px; width:46px; height:120px; z-index:15;
+    background:linear-gradient(180deg,var(--ribbon),var(--ribbon-dark));
+    clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);
+    cursor:pointer;
+  }
 
-        #reception-status {
-            font-size: 13px;
-            color: #2d3436;
-            text-align: center;
-            margin-top: 6px;
-            background: #eaf6ff;
-            border: 1px solid #74b9ff;
-            border-radius: 8px;
-            padding: 6px;
-        }
+  .page{ display:none; min-height:100vh; padding:0 24px; }
+  .page.active{ display:block; }
 
-        #loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #ffeaa7, #fab1a0);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #2d3436;
-            font-size: 24px;
-            font-weight: bold;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
-        }
+  #home{
+    display:none;
+    align-items:center; justify-content:center;
+    min-height:100vh; position:relative;
+  }
+  #home.active{ display:flex; }
+  .home-inner{ width:100%; max-width:1200px; margin:0 auto; position:relative; padding:60px 20px; }
+  .hero-title{
+    font-size:8vw; font-weight:300; color:var(--gray-dark); text-align:center; margin:0; letter-spacing:2px;
+  }
+  .hero-sub{
+    font-size:3.4vw; font-weight:300; color:var(--gray-light); text-align:center; margin:0 0 60px;
+  }
+  .home-books{
+    display:flex; justify-content:space-between; align-items:flex-end; margin-top:40px; flex-wrap:wrap; gap:30px;
+  }
+  .book-svg{ width:140px; }
+  .home-left{ display:flex; flex-direction:column; align-items:flex-start; gap:14px; }
+  .home-right{ display:flex; align-items:center; gap:24px; }
+  .home-right .links{ text-align:center; color:var(--text); font-size:17px; line-height:1.6; }
+  .home-right .links a{ display:block; color:var(--text); }
+  .home-right .links a:hover{ color:var(--text-dark); }
+  .book-count{ color:var(--text); font-size:15px; margin-top:10px; }
 
-        #loader span {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
+  .page-wrap{ max-width:960px; margin:0 auto; padding:110px 10px 60px; }
+  .page-title{ font-size:44px; font-weight:300; color:var(--gray-dark); margin:0 0 6px; text-align:center;}
+  .page-sub{ font-size:18px; color:var(--gray-light); text-align:center; margin:0 0 50px;}
 
-        #hud-message {
-            position: fixed;
-            bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(45, 27, 78, 0.92);
-            color: #fbc531;
-            padding: 10px 22px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            pointer-events: none;
-            z-index: 20;
-            text-align: center;
-        }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:26px; }
+  .card{
+    border:1px solid var(--border); border-radius:6px; padding:20px; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  .cover{ width:70px; height:100px; border-radius:2px 6px 6px 2px; box-shadow:2px 2px 6px rgba(0,0,0,.15); }
+  .card h3{ margin:6px 0 0; font-size:17px; color:var(--text-dark); font-weight:500; }
+  .card p{ margin:0; font-size:13px; color:var(--gray-dark); }
+  .card .desc{ font-size:13px; color:var(--text); min-height:34px; }
+  .star-btn{
+    border:1px solid var(--border); background:var(--white); border-radius:20px;
+    padding:6px 16px; cursor:pointer; color:var(--text-dark); font-size:13px; margin-top:6px;
+  }
+  .star-btn.active{ background:var(--ribbon); color:var(--white); border-color:var(--ribbon); }
 
-        #hud-message.show {
-            opacity: 1;
-        }
+  .empty{ text-align:center; color:var(--gray-light); font-size:18px; padding:60px 0; }
 
-        #mouse-hint {
-            position: fixed;
-            bottom: 30px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.55);
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            z-index: 20;
-            pointer-events: none;
-        }
+  form{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+  label{ font-size:14px; color:var(--text-dark); display:flex; flex-direction:column; gap:6px; }
+  input, textarea{
+    font-family:inherit; padding:12px 14px; border:1px solid var(--border); border-radius:6px;
+    font-size:15px; color:var(--text-dark); background:var(--white);
+  }
+  input:focus, textarea:focus{ outline:2px solid var(--gray-dark); }
+  textarea{ resize:vertical; min-height:110px; }
+  .submit-btn{
+    border:none; background:var(--text-dark); color:var(--white); padding:13px; border-radius:6px;
+    font-size:16px; cursor:pointer; margin-top:8px;
+  }
+  .submit-btn:hover{ background:#333; }
+  .color-row{ display:flex; gap:10px; }
+  .color-dot{
+    width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+  }
+  .color-dot.selected{ border-color:var(--text-dark); }
+  .toast{
+    max-width:480px; margin:0 auto 20px; text-align:center; background:#f3f8f3; color:#3b7a3b;
+    border:1px solid #c9e4c9; border-radius:6px; padding:12px; display:none;
+  }
+  .toast.show{ display:block; }
+  .toast.error{ background:#fdf2f2; color:#b81717; border-color:#f5c2c2; }
 
-        .hidden { display: none !important; }
-
-        #checkin-button {
-            position: fixed;
-            bottom: 150px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90px;
-            height: 90px;
-            z-index: 25;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-            cursor: pointer;
-        }
-        #checkin-button svg {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            transform: rotate(-90deg);
-        }
-        #checkin-button .ring-bg {
-            fill: rgba(0,0,0,0.55);
-            stroke: rgba(255,255,255,0.25);
-            stroke-width: 6;
-        }
-        #checkin-button .ring-fg {
-            fill: none;
-            stroke: #3498db;
-            stroke-width: 6;
-            stroke-linecap: round;
-            stroke-dasharray: 263.89;
-            stroke-dashoffset: 263.89;
-        }
-        #checkin-button .checkin-icon {
-            position: relative;
-            font-size: 32px;
-            z-index: 1;
-        }
-
-        #device-select-screen {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #2d1b4e, #4a2e6e);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9998;
-        }
-        .device-select-panel {
-            text-align: center;
-            padding: 30px;
-        }
-        .device-select-title {
-            font-size: 34px;
-            color: #fbc531;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 10px;
-        }
-        .device-select-subtitle {
-            color: #f1f2f6;
-            font-size: 18px;
-            margin-bottom: 24px;
-        }
-        #device-select-buttons {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-        }
-        .device-select-btn {
-            background: linear-gradient(135deg, #fdf6c9, #f5d76e);
-            border: 3px solid #d4af37;
-            border-radius: 16px;
-            padding: 20px 22px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #2d1b4e;
-            cursor: pointer;
-            min-width: 100px;
-            line-height: 1.6;
-        }
-        .device-select-btn:hover {
-            background: linear-gradient(135deg, #fff3b0, #f7de85);
-        }
-
-        #mobile-joystick {
-            position: fixed;
-            bottom: 30px;
-            left: 30px;
-            z-index: 30;
-            touch-action: none;
-        }
-        #joystick-base {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.35);
-            border: 2px solid rgba(255,255,255,0.4);
-            position: relative;
-        }
-        #joystick-knob {
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            background: rgba(251,197,49,0.85);
-            border: 2px solid #d4af37;
-            position: absolute;
-            top: 33px;
-            left: 33px;
-        }
-        #mobile-action-btn {
-            position: fixed;
-            bottom: 40px;
-            right: 30px;
-            z-index: 30;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #74b9ff, #3498db);
-            border: 3px solid #ffffff;
-            color: #fff;
-            font-weight: bold;
-            font-size: 13px;
-            line-height: 1.3;
-            cursor: pointer;
-        }
-        body.tablet-mode #joystick-base { width: 160px; height: 160px; }
-        body.tablet-mode #joystick-knob { width: 70px; height: 70px; top: 45px; left: 45px; }
-        body.tablet-mode #mobile-action-btn { width: 100px; height: 100px; font-size: 16px; }
-
-        #elevator-menu {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(20, 12, 35, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 40;
-        }
-        .elevator-panel {
-            background: linear-gradient(135deg, #2d1b4e, #4a2e6e);
-            border: 3px solid #d4af37;
-            border-radius: 18px;
-            padding: 24px 28px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            text-align: center;
-            max-width: 340px;
-        }
-        .elevator-panel h2 {
-            color: #fbc531;
-            margin: 0 0 16px 0;
-            font-size: 22px;
-        }
-        #elevator-floor-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-        }
-        .elevator-floor-btn {
-            background: linear-gradient(135deg, #fdf6c9, #f5d76e);
-            border: 2px solid #d4af37;
-            border-radius: 10px;
-            padding: 14px 6px;
-            font-size: 15px;
-            font-weight: bold;
-            color: #2d1b4e;
-            cursor: pointer;
-        }
-        .elevator-floor-btn:hover {
-            background: linear-gradient(135deg, #fff3b0, #f7de85);
-        }
-        #elevator-close-btn {
-            margin-top: 16px;
-            background: transparent;
-            border: 2px solid #fbc531;
-            color: #fbc531;
-            border-radius: 10px;
-            padding: 8px 16px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  @media (max-width:640px){
+    .hero-title{ font-size:14vw; }
+    .hero-sub{ font-size:5.5vw; }
+    .home-books{ flex-direction:column; align-items:center; }
+    .home-right{ flex-direction:column-reverse; }
+    .ribbon{ display:none; }
+  }
+</style>
 </head>
 <body>
 
-    <div id="device-select-screen">
-        <div class="device-select-panel">
-            <span class="device-select-title">🏨 מלון גומא</span>
-            <p class="device-select-subtitle">באיזה מכשיר אתה משחק?</p>
-            <div id="device-select-buttons">
-                <button class="device-select-btn" data-device="phone">📱<br>טלפון</button>
-                <button class="device-select-btn" data-device="tablet">📲<br>טאבלט</button>
-                <button class="device-select-btn" data-device="desktop">💻<br>מחשב</button>
-            </div>
-        </div>
-    </div>
+<div class="overlay" id="overlay"></div>
+<button class="menu-btn" id="menuBtn" aria-label="תפריט"><span></span><span></span><span></span></button>
+<nav class="menu-panel" id="menuPanel">
+  <a href="#home" data-page="home">אות ועוד</a>
+  <a href="#library" data-page="library">ספריית הספרים</a>
+  <a href="#bookmarks" data-page="bookmarks">תצוגת סימניות</a>
+  <a href="#addbook" data-page="addbook">מלאו טפסים</a>
+  <a href="#contact" data-page="contact">צרו קשר</a>
+</nav>
 
-    <div id="loader"><span>🏨</span>טוען את מלון גומא...</div>
-    <div id="canvas-container"></div>
-    <div id="hud-message"></div>
-    <div id="mouse-hint">🖱️ גרור עם העכבר (לחיצה + הזזה) כדי לסובב את המצלמה</div>
-    <div id="checkin-button" class="hidden">
-        <svg viewBox="0 0 100 100">
-            <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
-            <circle id="checkin-progress" class="ring-fg" cx="50" cy="50" r="42"></circle>
+<button class="plus-btn" title="הוסיפו ספר חדש" data-page="addbook">+</button>
+<div class="ribbon" title="תצוגת הסימניות" data-page="bookmarks"></div>
+
+<section class="page" id="home">
+  <div class="home-inner">
+    <h1 class="hero-title">אות ועוד</h1>
+    <p class="hero-sub">אתר הספרים הגדול</p>
+    <div class="home-books">
+      <div class="home-left">
+        <svg class="book-svg" viewBox="0 0 120 160" style="transform:rotate(-8deg)">
+          <rect x="10" y="10" width="90" height="140" rx="4" fill="var(--blue-1)"/>
+          <rect x="10" y="10" width="18" height="140" rx="4" fill="var(--blue-2)"/>
         </svg>
-        <span class="checkin-icon" id="checkin-icon">🔑</span>
-    </div>
-
-    <div id="mobile-joystick" class="hidden">
-        <div id="joystick-base">
-            <div id="joystick-knob"></div>
+        <div class="book-count">כמה ספרים יש לנו: <span id="bookCount">0</span></div>
+      </div>
+      <div class="home-right">
+        <div class="links">
+          <a href="#bookmarks" data-page="bookmarks">לחץ<br>לתצוגת<br>הסימניות</a>
         </div>
-    </div>
-    <button id="mobile-action-btn" class="hidden">⚡<br>פעולה</button>
-
-    <div id="elevator-menu" class="hidden">
-        <div class="elevator-panel">
-            <h2>🛗 בחר קומה</h2>
-            <div id="elevator-floor-buttons"></div>
-            <button id="elevator-close-btn">סגור</button>
+        <svg class="book-svg" viewBox="0 0 120 160">
+          <rect x="14" y="10" width="90" height="140" rx="4" fill="var(--gold-1)"/>
+          <rect x="14" y="10" width="18" height="140" rx="4" fill="var(--gold-2)"/>
+          <path d="M78 10 h16 v46 l-8 -8 l-8 8 z" fill="var(--ribbon)"/>
+        </svg>
+        <div class="links">
+          <a href="#library" data-page="library">לחץ<br>לספריית<br>הספרים</a>
         </div>
+      </div>
     </div>
-
-    <div id="ui-layer">
-        <div id="money-display">💵 <span id="money-value">0</span></div>
-        <h1>מלון גומא 🛎️</h1>
-        <p>נער השירות מוכן לפעולה!</p>
-        <div class="controls" id="controls-text">
-            <strong>מקשי שליטה:</strong><br>
-            • תנועה: מקשי החיצים או W, A, S, D<br>
-            • מעבר בין קומות: היכנס למעלית משמאל לשטיח הקבלה ובחר קומה<br>
-            • E: לקנות חדר או לשכור מנקה בכל אחת מקומות 2 עד 9, לשכור פקיד קבלה, לשכור מלצר או לקחת/להגיש אוכל בחדר האוכל, או לקחת נייר טואלט<br>
-            • על תא שירותים ריק: החזק E, או לחץ והחזק על כפתור נייר הטואלט 🧻 שתי שניות, כדי למלא<br>
-            • ליד דלפק הקבלה: החזק E, או לחץ והחזק על כפתור המפתח 🔑 שתי שניות, כדי לתת חדר לאורח ממתין<br>
-            • על מקום מלוכלך בחדר: החזק E, או לחץ והחזק על כפתור המטאטא 🧹 שתי שניות, כדי לנקות<br>
-            • עכבר: לחץ על המסך לשליטה בזווית המצלמה
-        </div>
-        <div id="reception-status">🧑‍💼 אורחים ממתינים בקבלה: <span id="guests-waiting">0</span></div>
-    </div>
-
-    <script>
-        // ===== בחירת סוג מכשיר =====
-        let deviceType = 'desktop';
-        function applyDeviceMode(type) {
-            document.body.classList.remove('phone-mode', 'tablet-mode', 'desktop-mode');
-            document.body.classList.add(type + '-mode');
-            const isTouch = type === 'phone' || type === 'tablet';
-            document.getElementById('mobile-joystick').classList.toggle('hidden', !isTouch);
-            document.getElementById('mobile-action-btn').classList.toggle('hidden', !isTouch);
-            document.getElementById('mouse-hint').classList.toggle('hidden', isTouch);
-
-            const controlsText = document.getElementById('controls-text');
-            if (isTouch) {
-                controlsText.innerHTML = `
-                    <strong>שליטה במגע:</strong><br>
-                    • הג'ויסטיק בפינה השמאלית התחתונה - תנועה וסיבוב<br>
-                    • גרירה על המסך - סיבוב המצלמה<br>
-                    • כפתור ⚡ פעולה - קניית חדר, שכירת מנקה/פקיד קבלה, לקיחת נייר טואלט<br>
-                    • כפתור 🔑 / 🧹 / 🧻 - החזק שתי שניות לצ'ק-אין, ניקוי, או מילוי נייר טואלט
-                `;
-            }
-        }
-        document.querySelectorAll('.device-select-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                deviceType = btn.dataset.device;
-                document.getElementById('device-select-screen').style.display = 'none';
-                applyDeviceMode(deviceType);
-            });
-        });
-
-        // --- הגדרות בסיסיות ---
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xf0e4d0);
-        scene.fog = new THREE.FogExp2(0xf0e4d0, 0.012);
-
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
-
-        // --- תאורה חמה ---
-        const ambientLight = new THREE.AmbientLight(0xfff2e0, 0.55);
-        scene.add(ambientLight);
-
-        const sunLight = new THREE.DirectionalLight(0xfff2e6, 1.0);
-        sunLight.position.set(20, 40, 20);
-        sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
-        sunLight.shadow.camera.left = -45;
-        sunLight.shadow.camera.right = 45;
-        sunLight.shadow.camera.top = 45;
-        sunLight.shadow.camera.bottom = -45;
-        scene.add(sunLight);
-
-        // --- חומרים ---
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0xc8d6e5, roughness: 0.35 });
-        const carpetMat = new THREE.MeshStandardMaterial({ color: 0x8c2f39, roughness: 0.9 });
-        const carpetGoldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.6, metalness: 0.3 });
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xf5ecd9, roughness: 0.85 });
-        const wallTrimMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 });
-        const deskMat = new THREE.MeshStandardMaterial({ color: 0x8c7ae6, roughness: 0.5 });
-        const deskTopMat = new THREE.MeshStandardMaterial({ color: 0x2d1b4e, roughness: 0.25, metalness: 0.2 });
-        const columnMat = new THREE.MeshStandardMaterial({ color: 0xfdf6e3, roughness: 0.4 });
-        const columnGoldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.7, roughness: 0.25 });
-        const glassMat = new THREE.MeshStandardMaterial({ color: 0xaee1f9, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.55 });
-        const windowFrameMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.5 });
-        const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b3f2a, roughness: 0.6 });
-        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2f7a3d, roughness: 0.8 });
-        const potMat = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.7 });
-        const sofaMat = new THREE.MeshStandardMaterial({ color: 0x7a1f2b, roughness: 0.7 });
-        const sofaCushionMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.6 });
-        const paintingFrameMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.5, roughness: 0.3 });
-        const chandelierMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 });
-        const marbleStairMat = new THREE.MeshStandardMaterial({ color: 0xe8ded0, roughness: 0.3 });
-        const elevatorDoorMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, metalness: 0.7, roughness: 0.25 });
-        const bellMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 });
-        const roomFloorMat = new THREE.MeshStandardMaterial({ color: 0xc48a5a, roughness: 0.7 });
-        const roomWallMat = new THREE.MeshStandardMaterial({ color: 0xf5ecd9, roughness: 0.8 });
-        const mattressMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-
-        // ==========================================================
-        // רצפה ראשית + שטיח מרכזי מפואר
-        // ==========================================================
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
-
-        const carpet = new THREE.Mesh(new THREE.PlaneGeometry(16, 40), carpetMat);
-        carpet.rotation.x = -Math.PI / 2;
-        carpet.position.set(0, 0.01, 0);
-        carpet.receiveShadow = true;
-        scene.add(carpet);
-
-        const carpetBorder1 = new THREE.Mesh(new THREE.PlaneGeometry(17, 1), carpetGoldMat);
-        carpetBorder1.rotation.x = -Math.PI / 2;
-        carpetBorder1.position.set(0, 0.015, 19.5);
-        scene.add(carpetBorder1);
-        const carpetBorder2 = carpetBorder1.clone();
-        carpetBorder2.position.set(0, 0.015, -19.5);
-        scene.add(carpetBorder2);
-
-        // ==========================================================
-        // קירות + חלונות + תקרה
-        // ==========================================================
-        function createWall(w, h, x, y, z, rotY) {
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.4), wallMat);
-            wall.position.set(x, y, z);
-            wall.rotation.y = rotY;
-            wall.castShadow = true;
-            wall.receiveShadow = true;
-            scene.add(wall);
-        }
-
-        const BUILDING_HEIGHT = 48; // גובה שמכסה את כל 9 הקומות (כולל קומה 9) + מרווח לתקרה
-
-        createWall(90, BUILDING_HEIGHT, 0, BUILDING_HEIGHT / 2, -45, 0);
-        createWall(90, BUILDING_HEIGHT, 0, BUILDING_HEIGHT / 2, 45, 0);
-        createWall(90, BUILDING_HEIGHT, -45, BUILDING_HEIGHT / 2, 0, Math.PI / 2);
-        createWall(90, BUILDING_HEIGHT, 45, BUILDING_HEIGHT / 2, 0, Math.PI / 2);
-
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), wallMat);
-        ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(0, BUILDING_HEIGHT, 0);
-        scene.add(ceiling);
-
-        // --- מתאמי התנגשות לכל הקירות (חיצוניים + חדרים) ---
-        // קירות חיצוניים (floorIdx: null) חלים תמיד, על כל הקומות.
-        // קירות חדרים (floorIdx מוגדר) חלים רק על השחקן כשהוא נמצא באותה קומה בדיוק,
-        // אחרת חדר שנבנה בקומה אחת ייצור "מחסום בלתי נראה" גם בקומות אחרות שחולקות את אותו x/z.
-        const wallColliders = [
-            { xMin: -45, xMax: 45, zMin: -45.2, zMax: -44.8, floorIdx: null }, // קיר אחורי
-            { xMin: -45, xMax: 45, zMin: 44.8, zMax: 45.2, floorIdx: null },   // קיר קדמי
-            { xMin: -45.2, xMax: -44.8, zMin: -45, zMax: 45, floorIdx: null }, // קיר שמאל
-            { xMin: 44.8, xMax: 45.2, zMin: -45, zMax: 45, floorIdx: null },   // קיר ימין
-        ];
-        function collidesWithWall(x, z, radius, floorIdx) {
-            for (const w of wallColliders) {
-                if (w.floorIdx != null && w.floorIdx !== floorIdx) continue;
-                if (x + radius > w.xMin && x - radius < w.xMax && z + radius > w.zMin && z - radius < w.zMax) return true;
-            }
-            return false;
-        }
-
-        function createWindow(x, z, rotY) {
-            const group = new THREE.Group();
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(4.4, 7.4, 0.3), windowFrameMat);
-            const glass = new THREE.Mesh(new THREE.PlaneGeometry(4, 7), glassMat);
-            glass.position.z = 0.2;
-            const barV = new THREE.Mesh(new THREE.BoxGeometry(0.15, 7, 0.35), windowFrameMat);
-            const barH = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 0.35), windowFrameMat);
-            group.add(frame, glass, barV, barH);
-            group.position.set(x, 8, z);
-            group.rotation.y = rotY;
-            scene.add(group);
-        }
-        for (let i = -30; i <= 30; i += 15) {
-            createWindow(-44.8, i, Math.PI / 2);
-            createWindow(44.8, i, Math.PI / 2);
-        }
-
-        function createColumn(x, z) {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.4, 24), columnGoldMat);
-            base.position.y = 0.2;
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 14, 24), columnMat);
-            shaft.position.y = 7.4;
-            shaft.castShadow = true;
-            const cap = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.4, 24), columnGoldMat);
-            cap.position.y = 14.6;
-            group.add(base, shaft, cap);
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-        [[-20, -20], [20, -20], [-20, 20], [20, 20], [-38, 0], [38, 0]].forEach(p => createColumn(p[0], p[1]));
-
-        // ==========================================================
-        // דלפק קבלה
-        // ==========================================================
-        const desk = new THREE.Mesh(new THREE.BoxGeometry(14, 3, 4), deskMat);
-        desk.position.set(0, 1.5, -2);
-        desk.castShadow = true;
-        desk.receiveShadow = true;
-        scene.add(desk);
-
-        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(14.4, 0.2, 4.4), deskTopMat);
-        deskTop.position.set(0, 3.1, -2);
-        deskTop.castShadow = true;
-        scene.add(deskTop);
-
-        const deskTrim = new THREE.Mesh(new THREE.BoxGeometry(14.2, 0.1, 4.2), wallTrimMat);
-        deskTrim.position.set(0, 0.05, -2);
-        scene.add(deskTrim);
-
-        const bellBase = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.15, 16), bellMat);
-        bellBase.position.set(3, 3.28, -2);
-        scene.add(bellBase);
-        const bellTop = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), bellMat);
-        bellTop.position.set(3, 3.35, -2);
-        scene.add(bellTop);
-
-        const monitorStand = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.2), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-        monitorStand.position.set(-3, 3.35, -2);
-        scene.add(monitorStand);
-        const monitorScreen = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x1e1e2e, emissive: 0x4c74d6, emissiveIntensity: 0.4 }));
-        monitorScreen.position.set(-3, 3.8, -2);
-        scene.add(monitorScreen);
-
-        // ==========================================================
-        // עציצים
-        // ==========================================================
-        function createPlant(x, z, scale = 1) {
-            const group = new THREE.Group();
-            const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.6 * scale, 0.45 * scale, 1 * scale, 16), potMat);
-            pot.position.y = 0.5 * scale;
-            pot.castShadow = true;
-            const foliage1 = new THREE.Mesh(new THREE.SphereGeometry(0.9 * scale, 12, 12), foliageMat);
-            foliage1.position.y = 1.6 * scale;
-            const foliage2 = new THREE.Mesh(new THREE.SphereGeometry(0.65 * scale, 12, 12), foliageMat);
-            foliage2.position.set(0.4 * scale, 2.2 * scale, 0.2 * scale);
-            const foliage3 = new THREE.Mesh(new THREE.SphereGeometry(0.6 * scale, 12, 12), foliageMat);
-            foliage3.position.set(-0.4 * scale, 2.1 * scale, -0.3 * scale);
-            foliage1.castShadow = foliage2.castShadow = foliage3.castShadow = true;
-            group.add(pot, foliage1, foliage2, foliage3);
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-        createPlant(-8.5, -2, 1.1);
-        createPlant(8.5, -2, 1.1);
-        createPlant(-40, -40, 1.3);
-        createPlant(-40, 40, 1.3);
-        createPlant(40, 40, 1.3);
-
-        // ==========================================================
-        // פינת ישיבה
-        // ==========================================================
-        function createSofa(x, z, rotY) {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.BoxGeometry(4, 0.9, 1.6), sofaMat);
-            base.position.y = 0.45;
-            const back = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 0.4), sofaMat);
-            back.position.set(0, 1.1, -0.6);
-            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 1.6), sofaMat);
-            armL.position.set(-1.9, 0.9, 0);
-            const armR = armL.clone();
-            armR.position.set(1.9, 0.9, 0);
-            const cushion1 = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.25, 1.3), sofaCushionMat);
-            cushion1.position.set(-1, 0.95, 0.05);
-            const cushion2 = cushion1.clone();
-            cushion2.position.set(1, 0.95, 0.05);
-            [base, back, armL, armR, cushion1, cushion2].forEach(m => { m.castShadow = true; group.add(m); });
-            group.position.set(x, 0, z);
-            group.rotation.y = rotY;
-            scene.add(group);
-        }
-        createSofa(-30, 20, Math.PI / 2);
-        createSofa(-30, 28, -Math.PI / 2);
-        createSofa(30, 20, -Math.PI / 2);
-        createSofa(30, 28, Math.PI / 2);
-
-        function createCoffeeTable(x, z) {
-            const group = new THREE.Group();
-            const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.15, 24), deskTopMat);
-            top.position.y = 1.0;
-            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1, 12), wallTrimMat);
-            leg.position.y = 0.5;
-            [top, leg].forEach(m => { m.castShadow = true; group.add(m); });
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-        createCoffeeTable(-30, 24);
-        createCoffeeTable(30, 24);
-
-        const rug1 = new THREE.Mesh(new THREE.CircleGeometry(4, 32), carpetMat);
-        rug1.rotation.x = -Math.PI / 2;
-        rug1.position.set(-30, 0.015, 24);
-        scene.add(rug1);
-        const rug2 = rug1.clone();
-        rug2.position.set(30, 0.015, 24);
-        scene.add(rug2);
-
-        // ==========================================================
-        // מעלית
-        // ==========================================================
-        function createElevator(x, z, y = 0) {
-            const group = new THREE.Group();
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(5, 8, 0.5), wallTrimMat);
-            frame.position.set(0, 4, 0);
-            const doorL = new THREE.Mesh(new THREE.BoxGeometry(2.15, 7, 0.2), elevatorDoorMat);
-            doorL.position.set(-1.1, 3.5, 0.3);
-            const doorR = doorL.clone();
-            doorR.position.set(1.1, 3.5, 0.3);
-            const panel = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-            panel.position.set(2.9, 4, 0.3);
-            [frame, doorL, doorR, panel].forEach(m => { m.castShadow = true; group.add(m); });
-            group.position.set(x, y, z);
-            scene.add(group);
-        }
-        createElevator(-44.5, -20);
-        createElevator(-44.5, -25);
-
-        // --- מעלית פונקציונלית משמאל לשטיח הקבלה - נכנסים אליה ונפתח תפריט בחירת קומה ---
-        const ELEVATOR_POS = { x: -15, z: 0 };
-        const FLOOR_LANDING_POS = { x: 42, z: -18 }; // נקודת נחיתה בטוחה בכל קומה (2 עד 9)
-        createElevator(ELEVATOR_POS.x, ELEVATOR_POS.z);
-        createSign('🛗 מעלית', ELEVATOR_POS.x, 8.3, ELEVATOR_POS.z + 0.35, 0);
-
-        let elevatorMenuOpen = false;
-        let elevatorArmed = true; // רק כשיוצאים מטווח המעלית ונכנסים אליו שוב, המסך ייפתח מחדש
-        function openElevatorMenu() {
-            if (elevatorMenuOpen) return;
-            elevatorMenuOpen = true;
-            document.getElementById('elevator-menu').classList.remove('hidden');
-        }
-        function closeElevatorMenu() {
-            elevatorMenuOpen = false;
-            document.getElementById('elevator-menu').classList.add('hidden');
-        }
-        function goToFloor(floorIdx) {
-            if (floorIdx === 0) {
-                playerGroup.position.set(ELEVATOR_POS.x, 0, ELEVATOR_POS.z + 4);
-            } else {
-                playerGroup.position.set(FLOOR_LANDING_POS.x, FLOOR_HEIGHTS[floorIdx], FLOOR_LANDING_POS.z);
-            }
-            playerCurrentFloorIdx = floorIdx;
-            closeElevatorMenu();
-            elevatorArmed = false; // צריך לצאת מטווח המעלית לפני שהמסך יוכל להיפתח שוב
-            showPrompt(floorIdx === 2 ? 'הגעת לחדר האוכל! 🍽️' : `הגעת לקומה ${floorIdx + 1}! 🛗`);
-        }
-
-        const elevatorFloorButtonsEl = document.getElementById('elevator-floor-buttons');
-        for (let i = 0; i <= 8; i++) {
-            const btn = document.createElement('button');
-            btn.className = 'elevator-floor-btn';
-            btn.textContent = (i === 2) ? '🍽️ חדר אוכל' : `${i + 1}  קומה ${i + 1}`;
-            btn.addEventListener('click', () => goToFloor(i));
-            elevatorFloorButtonsEl.appendChild(btn);
-        }
-        document.getElementById('elevator-close-btn').addEventListener('click', () => {
-            closeElevatorMenu();
-            elevatorArmed = false;
-        });
-
-        // ==========================================================
-        // מדרגות → קומה שנייה (מזנין)
-        // הוזזו קדימה (cz גדול יותר) כדי לפנות עומק גדול בהרבה במזנין
-        // כדי שיהיה מקום ל-10 חדרים נוספים
-        // ==========================================================
-        const STAIR = { cx: 30, cz: 5, steps: 14, stepH: 0.35, stepD: 1.1, width: 8 };
-        STAIR.totalRise = STAIR.steps * STAIR.stepH;
-        STAIR.totalRun = STAIR.steps * STAIR.stepD;
-
-        const MEZZ = { xMin: -40, xMax: 44, zMin: -44.4, zMax: STAIR.cz - STAIR.totalRun, height: STAIR.totalRise };
-
-        // ==========================================================
-        // מערך קומות - קומת קרקע (0) ועוד 8 קומות עם חדרים (1=קומה2 ... 8=קומה9)
-        // כל קומה חדשה עולה בדיוק ה"גובה" של קומה 2 (MEZZ.height) מעל הקודמת
-        // ==========================================================
-        const FLOOR_HEIGHTS = [0];
-        for (let i = 1; i <= 8; i++) FLOOR_HEIGHTS.push(i * MEZZ.height);
-
-        const FLOOR_ZMAX = -10.4; // הקצה הקדמי של כל קומה (זהה לקומה 2)
-
-        function createSign(text, x, y, z, rotY) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 96;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d1b4e';
-            ctx.fillRect(0, 0, 256, 96);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 5; ctx.strokeRect(3, 3, 250, 90);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 28px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, 128, 48);
-            const texture = new THREE.CanvasTexture(canvas);
-            const plaque = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.9), new THREE.MeshStandardMaterial({ map: texture }));
-            plaque.position.set(x, y, z);
-            plaque.rotation.y = rotY;
-            scene.add(plaque);
-        }
-
-        // ==========================================================
-        // מזנין (קומה שנייה) + מעקה בטיחות
-        // ==========================================================
-        function createMezzanine() {
-            const w = MEZZ.xMax - MEZZ.xMin, d = MEZZ.zMax - MEZZ.zMin;
-            const cx = (MEZZ.xMin + MEZZ.xMax) / 2, cz = (MEZZ.zMin + MEZZ.zMax) / 2;
-
-            const platform = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), marbleStairMat);
-            platform.position.set(cx, MEZZ.height - 0.15, cz);
-            platform.castShadow = true;
-            platform.receiveShadow = true;
-            scene.add(platform);
-
-            for (let px = MEZZ.xMin + 2; px <= MEZZ.xMax - 2; px += 8) {
-                const support = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, MEZZ.height, 16), columnMat);
-                support.position.set(px, MEZZ.height / 2, MEZZ.zMax - 1);
-                support.castShadow = true;
-                scene.add(support);
-            }
-
-            const railGroup = new THREE.Group();
-            for (let px = MEZZ.xMin; px <= MEZZ.xMax; px += 2) {
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), columnGoldMat);
-                post.position.set(px, MEZZ.height + 0.55, MEZZ.zMax);
-                railGroup.add(post);
-            }
-            const handrailFull = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, MEZZ.xMax - MEZZ.xMin, 12), columnGoldMat);
-            handrailFull.rotation.z = Math.PI / 2;
-            handrailFull.position.set((MEZZ.xMin + MEZZ.xMax) / 2, MEZZ.height + 1.05, MEZZ.zMax);
-            railGroup.add(handrailFull);
-            scene.add(railGroup);
-        }
-        createMezzanine();
-
-        // ==========================================================
-        // 7 קומות נוספות (3 עד 9) - אותו מבנה בדיוק כמו קומה 2, רק גבוה יותר
-        // ==========================================================
-        function buildFloorLevel(floorIdx) {
-            const height = FLOOR_HEIGHTS[floorIdx];
-            const w = MEZZ.xMax - MEZZ.xMin, d = FLOOR_ZMAX - MEZZ.zMin;
-            const cx = (MEZZ.xMin + MEZZ.xMax) / 2, cz = (MEZZ.zMin + FLOOR_ZMAX) / 2;
-
-            const platform = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), marbleStairMat);
-            platform.position.set(cx, height - 0.15, cz);
-            platform.castShadow = true;
-            platform.receiveShadow = true;
-            scene.add(platform);
-
-            for (let px = MEZZ.xMin + 2; px <= MEZZ.xMax - 2; px += 8) {
-                const support = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, height, 16), columnMat);
-                support.position.set(px, height / 2, FLOOR_ZMAX - 1);
-                support.castShadow = true;
-                scene.add(support);
-            }
-
-            const railGroup = new THREE.Group();
-            for (let px = MEZZ.xMin; px <= MEZZ.xMax; px += 2) {
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), columnGoldMat);
-                post.position.set(px, height + 0.55, FLOOR_ZMAX);
-                railGroup.add(post);
-            }
-            const handrailFull = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, MEZZ.xMax - MEZZ.xMin, 12), columnGoldMat);
-            handrailFull.rotation.z = Math.PI / 2;
-            handrailFull.position.set((MEZZ.xMin + MEZZ.xMax) / 2, height + 1.05, FLOOR_ZMAX);
-            railGroup.add(handrailFull);
-            scene.add(railGroup);
-        }
-        for (let f = 2; f <= 8; f++) buildFloorLevel(f);
-
-        // מעלית בכל קומה (2 עד 9) - באותה נקודת נחיתה, כדי שאפשר גם לחזור ממנה
-        for (let f = 1; f <= 8; f++) {
-            createElevator(FLOOR_LANDING_POS.x, FLOOR_LANDING_POS.z, FLOOR_HEIGHTS[f]);
-            createSign('🛗 מעלית', FLOOR_LANDING_POS.x, FLOOR_HEIGHTS[f] + 8.3, FLOOR_LANDING_POS.z + 0.35, 0);
-        }
-
-        // ==========================================================
-        // חדר אוכל - קומה 3 (במקום חדרי מלון). בופה עם 4 סוגי אוכל אינסופיים,
-        // שולחנות שבהם אורחים יושבים, ומלצרים שמביאים את מה שהאורח בחר.
-        // ==========================================================
-        const DINING_FLOOR_IDX = 2;
-        const DINING_HEIGHT = FLOOR_HEIGHTS[DINING_FLOOR_IDX];
-        const FOOD_TYPES = [
-            { name: 'ביצה', icon: '🥚', color: 0xfff2c0 },
-            { name: 'ברוקולי', icon: '🥦', color: 0x2f7a3d },
-            { name: 'סטייק', icon: '🥩', color: 0x8b4a3c },
-            { name: 'עוף', icon: '🍗', color: 0xd9a441 },
-        ];
-        const BUFFET_POS = { x: -30, z: -40 };
-        const WAITER_HOME_POS = { x: -28, z: -36 };
-
-        function buildBuffet() {
-            const counter = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 2), deskMat);
-            counter.position.set(BUFFET_POS.x, DINING_HEIGHT + 0.6, BUFFET_POS.z);
-            counter.castShadow = true;
-            counter.receiveShadow = true;
-            scene.add(counter);
-            const counterTop = new THREE.Mesh(new THREE.BoxGeometry(14.3, 0.15, 2.3), deskTopMat);
-            counterTop.position.set(BUFFET_POS.x, DINING_HEIGHT + 1.28, BUFFET_POS.z);
-            scene.add(counterTop);
-
-            FOOD_TYPES.forEach((food, i) => {
-                const trayX = BUFFET_POS.x - 5 + i * 3.4;
-                const tray = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.3, 20), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.4, roughness: 0.4 }));
-                tray.position.set(trayX, DINING_HEIGHT + 1.5, BUFFET_POS.z);
-                scene.add(tray);
-                const food3d = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshStandardMaterial({ color: food.color, roughness: 0.7 }));
-                food3d.position.set(trayX, DINING_HEIGHT + 1.85, BUFFET_POS.z);
-                food3d.scale.set(1, 0.6, 1);
-                scene.add(food3d);
-            });
-
-            const canvas = document.createElement('canvas');
-            canvas.width = 320; canvas.height = 80;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d1b4e';
-            ctx.fillRect(0, 0, 320, 80);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 4; ctx.strokeRect(3, 3, 314, 74);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 26px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🍽️ בופה - אוכל אינסופי', 160, 40);
-            const texture = new THREE.CanvasTexture(canvas);
-            const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.85), new THREE.MeshStandardMaterial({ map: texture }));
-            sign.position.set(BUFFET_POS.x, DINING_HEIGHT + 3.2, BUFFET_POS.z - 0.9);
-            scene.add(sign);
-        }
-        buildBuffet();
-
-        function createWaiterPriceTile(price) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(90,30,20,0.85)';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#fbc531'; ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, 244, 244);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 40px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🧑‍🍳', 128, 78);
-            ctx.font = 'bold 26px Arial';
-            ctx.fillText('מלצר', 128, 128);
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText('💵 ' + price, 128, 170);
-            ctx.font = 'bold 18px Arial';
-            ctx.fillText('לחץ E לשכירה', 128, 205);
-            const texture = new THREE.CanvasTexture(canvas);
-            const tile = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: texture, transparent: true }));
-            tile.rotation.x = -Math.PI / 2;
-            return tile;
-        }
-
-        // ריבועי המלצרים - ליד הבופה, לא מתחתיו
-        const waiterSlots = [
-            { x: -16, z: -40, price: 450 },
-            { x: -11, z: -40, price: 900 },
-            { x: -6, z: -40, price: 1450 },
-        ].map(slot => ({ ...slot, purchased: false, tile: null }));
-
-        waiterSlots.forEach((slot, i) => {
-            const tile = createWaiterPriceTile(slot.price);
-            tile.position.set(slot.x, DINING_HEIGHT + 0.05, slot.z);
-            tile.visible = (i === 0);
-            scene.add(tile);
-            slot.tile = tile;
-        });
-
-        function createWaiterMesh() {
-            const group = new THREE.Group();
-            const shirtMat = new THREE.MeshStandardMaterial({ color: 0xf1f2f6, roughness: 0.6 });
-            const apronMat = new THREE.MeshStandardMaterial({ color: 0x2d1b4e, roughness: 0.6 });
-            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x22252b, roughness: 0.6 });
-            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
-            const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2a1a, roughness: 0.7 });
-
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 1.2, 12), shirtMat);
-            body.position.y = 1.05;
-            body.castShadow = true;
-            const apron = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.08), apronMat);
-            apron.position.set(0, 0.9, 0.3);
-            group.add(body, apron);
-
-            const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.85, 10);
-            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
-            leftLeg.position.set(-0.16, 0.42, 0);
-            const rightLeg = new THREE.Mesh(legGeo, pantsMat);
-            rightLeg.position.set(0.16, 0.42, 0);
-            group.add(leftLeg, rightLeg);
-
-            const shoeGeo = new THREE.BoxGeometry(0.22, 0.18, 0.32);
-            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            leftShoe.position.set(-0.16, 0.09, 0.05);
-            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            rightShoe.position.set(0.16, 0.09, 0.05);
-            group.add(leftShoe, rightShoe);
-
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skinMat);
-            head.position.y = 1.85;
-            head.castShadow = true;
-            group.add(head);
-
-            const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), hairMat);
-            hairCap.position.y = 1.9;
-            group.add(hairCap);
-
-            // מגש קטן ביד
-            const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.4 }));
-            tray.position.set(0.42, 0.95, 0.15);
-            group.add(tray);
-
-            group.scale.set(1.9, 1.9, 1.9);
-            return group;
-        }
-
-        const waiters = [];
-        function hireWaiter(slot) {
-            const mesh = createWaiterMesh();
-            mesh.position.set(WAITER_HOME_POS.x, DINING_HEIGHT, WAITER_HOME_POS.z);
-            scene.add(mesh);
-            waiters.push({ mesh, state: 'idle', path: null, pathIndex: 0, timer: 0, table: null });
-        }
-
-        function tryPurchaseNextWaiter() {
-            if (Math.abs(playerGroup.position.y - DINING_HEIGHT) > 1.5) return;
-            const nextSlot = waiterSlots.find(s => !s.purchased);
-            if (!nextSlot) return;
-            if (horizontalDist(playerGroup.position, { x: nextSlot.x, z: nextSlot.z }) >= 4) return;
-            if (spendMoney(nextSlot.price)) {
-                nextSlot.purchased = true;
-                nextSlot.tile.visible = false;
-                hireWaiter(nextSlot);
-                showPrompt('נשכר מלצר חדש! 🧑‍🍳');
-                const idx = waiterSlots.indexOf(nextSlot);
-                if (waiterSlots[idx + 1]) waiterSlots[idx + 1].tile.visible = true;
-                saveGame();
-            } else {
-                showPrompt(`אין מספיק כסף לשכירת מלצר! חסר לך ${nextSlot.price - money} 💵`);
-            }
-        }
-
-        // --- שולחנות ---
-        const diningTables = [];
-        [-25, 0, 25].forEach(x => {
-            [-18, -26, -34].forEach(z => {
-                diningTables.push({ x, z, occupied: false, diner: null });
-            });
-        });
-
-        function createDiningTable(x, z) {
-            const group = new THREE.Group();
-            const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.12, 20), woodMat);
-            top.position.y = 1.0;
-            top.castShadow = true;
-            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.0, 10), new THREE.MeshStandardMaterial({ color: 0x3d2b1f }));
-            leg.position.y = 0.5;
-            group.add(top, leg);
-            [0, Math.PI / 2, Math.PI, -Math.PI / 2].forEach(rot => {
-                const chair = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), sofaMat);
-                chair.position.set(Math.sin(rot) * 1.8, 0.4, Math.cos(rot) * 1.8);
-                chair.castShadow = true;
-                group.add(chair);
-            });
-            group.position.set(x, DINING_HEIGHT, z);
-            scene.add(group);
-        }
-        diningTables.forEach(t => createDiningTable(t.x, t.z));
-
-        // --- מציג את בחירת המזון מעל ראש הסועד ---
-        function createFoodOrderIcon(food) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 96; canvas.height = 96;
-            const ctx = canvas.getContext('2d');
-            ctx.font = '68px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(food.icon, 48, 54);
-            const texture = new THREE.CanvasTexture(canvas);
-            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
-            return mesh;
-        }
-
-        // --- סועדים - נכנסים דרך המעלית בקומה, יושבים, מזמינים, אוכלים, יוצאים ---
-        const diners = [];
-        let dinerSpawnTimer = 5;
-
-        function spawnDiner() {
-            const freeTable = diningTables.find(t => !t.occupied);
-            if (!freeTable) return;
-            freeTable.occupied = true;
-            const mesh = createGuestMesh();
-            mesh.position.set(FLOOR_LANDING_POS.x, DINING_HEIGHT, FLOOR_LANDING_POS.z);
-            scene.add(mesh);
-            const food = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
-            const orderIcon = createFoodOrderIcon(food);
-            orderIcon.position.set(0, 2.4, 0);
-            orderIcon.visible = false;
-            mesh.add(orderIcon);
-            const diner = { mesh, state: 'toTable', table: freeTable, food, timer: 0, orderIcon };
-            freeTable.diner = diner;
-            diners.push(diner);
-        }
-
-        function updateDiners(delta) {
-            dinerSpawnTimer -= delta;
-            if (dinerSpawnTimer <= 0) {
-                spawnDiner();
-                dinerSpawnTimer = 6 + Math.random() * 6;
-            }
-
-            diners.forEach(d => {
-                if (d.state === 'toTable') {
-                    const dir = new THREE.Vector3(d.table.x - d.mesh.position.x, 0, d.table.z - d.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.5) {
-                        d.state = 'waitingOrder';
-                        d.orderIcon.visible = true;
-                    } else {
-                        dir.normalize();
-                        d.mesh.position.addScaledVector(dir, Math.min(0.055, dist));
-                        d.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (d.state === 'eating') {
-                    d.timer -= delta;
-                    if (d.timer <= 0) {
-                        d.orderIcon.visible = false;
-                        d.state = 'toExit';
-                    }
-                } else if (d.state === 'toExit') {
-                    const dir = new THREE.Vector3(FLOOR_LANDING_POS.x - d.mesh.position.x, 0, FLOOR_LANDING_POS.z - d.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.6) {
-                        d.table.occupied = false;
-                        d.table.diner = null;
-                        d.state = 'done';
-                    } else {
-                        dir.normalize();
-                        d.mesh.position.addScaledVector(dir, Math.min(0.055, dist));
-                        d.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                }
-            });
-
-            for (let i = diners.length - 1; i >= 0; i--) {
-                if (diners[i].state === 'done') {
-                    scene.remove(diners[i].mesh);
-                    diners.splice(i, 1);
-                }
-            }
-        }
-
-        // --- מלצרים - מגישים לסועדים שממתינים להזמנה ---
-        function updateWaiters(delta) {
-            waiters.forEach(w => {
-                if (w.state === 'idle') {
-                    const table = diningTables.find(t => t.occupied && t.diner && t.diner.state === 'waitingOrder' && !t.diner.beingServed);
-                    if (table) {
-                        table.diner.beingServed = true;
-                        w.table = table;
-                        w.path = [{ x: table.x, z: table.z }];
-                        w.pathIndex = 0;
-                        w.state = 'toTable';
-                    }
-                } else if (w.state === 'toTable') {
-                    const wp = w.path[w.pathIndex];
-                    const dir = new THREE.Vector3(wp.x - w.mesh.position.x, 0, wp.z - w.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.6) {
-                        if (w.table.diner) {
-                            w.table.diner.state = 'eating';
-                            w.table.diner.timer = 5;
-                            w.table.diner.beingServed = false;
-                        }
-                        w.table = null;
-                        w.path = [{ x: WAITER_HOME_POS.x, z: WAITER_HOME_POS.z }];
-                        w.pathIndex = 0;
-                        w.state = 'toHome';
-                    } else {
-                        dir.normalize();
-                        w.mesh.position.addScaledVector(dir, Math.min(0.07, dist));
-                        w.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (w.state === 'toHome') {
-                    const wp = w.path[w.pathIndex];
-                    const dir = new THREE.Vector3(wp.x - w.mesh.position.x, 0, wp.z - w.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.4) {
-                        w.state = 'idle';
-                    } else {
-                        dir.normalize();
-                        w.mesh.position.addScaledVector(dir, Math.min(0.07, dist));
-                        w.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                }
-            });
-        }
-
-        // --- השחקן יכול לקחת אוכל מהבופה (עד 3 מנות) ולהגיש בעצמו לסועד שממתין ---
-        const FOOD_PICKUP_POINTS = FOOD_TYPES.map((food, i) => ({
-            food, x: BUFFET_POS.x - 5 + i * 3.4, z: BUFFET_POS.z,
-        }));
-
-        let playerFoodItems = []; // עד 3 פריטי אוכל (אובייקטים מתוך FOOD_TYPES)
-        const playerFoodMeshes = [];
-
-        function updatePlayerFoodVisual() {
-            while (playerFoodMeshes.length) {
-                playerGroup.remove(playerFoodMeshes.pop());
-            }
-            playerFoodItems.forEach((food, i) => {
-                const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), new THREE.MeshStandardMaterial({ color: food.color, roughness: 0.7 }));
-                mesh.scale.set(1, 0.6, 1);
-                mesh.position.set(0.85, 1.5 + i * 0.24, 0.15);
-                playerGroup.add(mesh);
-                playerFoodMeshes.push(mesh);
-            });
-        }
-
-        function tryTakeFood() {
-            if (Math.abs(playerGroup.position.y - DINING_HEIGHT) > 1.5) return;
-            const point = FOOD_PICKUP_POINTS.find(p => horizontalDist(playerGroup.position, p) < 2.2);
-            if (!point) return;
-            if (playerFoodItems.length >= 3) {
-                showPrompt('אתה כבר מחזיק 3 מנות - זה המקסימום! 🍽️');
-                return;
-            }
-            playerFoodItems.push(point.food);
-            updatePlayerFoodVisual();
-            showPrompt(`לקחת ${point.food.name}! (${playerFoodItems.length}/3) ${point.food.icon}`);
-        }
-
-        function tryServeFoodToDiner() {
-            if (Math.abs(playerGroup.position.y - DINING_HEIGHT) > 1.5) return;
-            let nearest = null, bestDist = Infinity;
-            diners.forEach(d => {
-                if (d.state !== 'waitingOrder') return;
-                const dist = horizontalDist(playerGroup.position, d.table);
-                if (dist < 2.5 && dist < bestDist) { bestDist = dist; nearest = d; }
-            });
-            if (!nearest) return;
-            const idx = playerFoodItems.findIndex(f => f.name === nearest.food.name);
-            if (idx === -1) {
-                showPrompt(`אין לך ${nearest.food.name}! לך תיקח מהבופה ${nearest.food.icon}`);
-                return;
-            }
-            playerFoodItems.splice(idx, 1);
-            updatePlayerFoodVisual();
-            nearest.orderIcon.visible = false;
-            nearest.beingServed = false;
-            nearest.state = 'eating';
-            nearest.timer = 5;
-            showPrompt(`הגשת ${nearest.food.name} לאורח! ${nearest.food.icon}`);
-        }
-
-
-        function createNumberPlaque(number) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d1b4e';
-            ctx.fillRect(0, 0, 128, 64);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, 124, 60);
-            ctx.fillStyle = '#d4af37';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(number, 64, 34);
-            const texture = new THREE.CanvasTexture(canvas);
-            return new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshStandardMaterial({ map: texture }));
-        }
-
-        // --- יצירת חדר מלון + מתאמי התנגשות אמיתיים לקירות הצדדיים שלו ---
-        function createHotelRoom(x, z, number, accentColor, y = MEZZ.height, floorIdx = 1) {
-            const group = new THREE.Group();
-            const w = 7.4, d = 6, h = 4;
-
-            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, d), roomWallMat);
-            leftWall.position.set(-w / 2, h / 2, 0);
-            const rightWall = leftWall.clone();
-            rightWall.position.set(w / 2, h / 2, 0);
-
-            const roomFloor = new THREE.Mesh(new THREE.BoxGeometry(w, 0.15, d), roomFloorMat);
-            roomFloor.position.set(0, 0.075, 0);
-
-            const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 3), woodMat);
-            bedFrame.position.set(-w / 2 + 1.6, 0.4, -0.3);
-            const mattress = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 2.8), mattressMat);
-            mattress.position.set(-w / 2 + 1.6, 0.75, -0.3);
-            const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.2, 0.6), new THREE.MeshStandardMaterial({ color: accentColor }));
-            pillow.position.set(-w / 2 + 1.6, 0.95, -1.5);
-
-            const nightstand = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), woodMat);
-            nightstand.position.set(-w / 2 + 0.5, 0.3, 1.4);
-
-            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.2, 0.2), paintingFrameMat);
-            doorFrame.position.set(0, 1.6, d / 2 - 0.1);
-
-            const plaque = createNumberPlaque(number);
-            plaque.position.set(0, 3.6, d / 2);
-
-            const floorMarker = new THREE.Mesh(new THREE.CircleGeometry(2.4, 32), new THREE.MeshStandardMaterial({ color: accentColor, transparent: true, opacity: 0.25 }));
-            floorMarker.rotation.x = -Math.PI / 2;
-            floorMarker.position.set(0, 0.16, 0.2);
-
-            [leftWall, rightWall, roomFloor, bedFrame, mattress, pillow, nightstand, doorFrame].forEach(m => {
-                m.castShadow = true; m.receiveShadow = true; group.add(m);
-            });
-            group.add(plaque, floorMarker);
-            group.position.set(x, y, z);
-            scene.add(group);
-
-            // מתאמי התנגשות לקירות הצדדיים בקואורדינטות עולם (עובי מוגדל מעט לביטחון)
-            // מתויגים עם floorIdx כדי שיחסמו רק בקומה הזו, ולא ייצרו "מחסום בלתי נראה" בקומות אחרות
-            wallColliders.push({ xMin: x - w / 2 - 0.2, xMax: x - w / 2 + 0.2, zMin: z - d / 2, zMax: z + d / 2, floorIdx });
-            wallColliders.push({ xMin: x + w / 2 - 0.2, xMax: x + w / 2 + 0.2, zMin: z - d / 2, zMax: z + d / 2, floorIdx });
-        }
-        createHotelRoom(15, -41, '201', 0xd63031);
-        createHotelRoom(27, -41, '202', 0x0984e3);
-        createHotelRoom(39, -41, '203', 0x00b894);
-
-        // --- מיקומי חדרים ורשימת כל החדרים הקיימים (לצורך שיבוץ אורחים) ---
-        // floorIdx: 0=קרקע (לא בשימוש לחדרים), 1=קומה2, 2=קומה3 ... 8=קומה9
-        const roomPositions = {
-            '201': { x: 15, z: -41, floorIdx: 1 },
-            '202': { x: 27, z: -41, floorIdx: 1 },
-            '203': { x: 39, z: -41, floorIdx: 1 },
-        };
-        const allRoomNumbers = ['201', '202', '203'];
-        const occupiedRooms = new Set();
-        const dirtyRooms = new Map(); // מספר חדר -> מערך מקומות מלוכלכים באותו חדר
-
-        // ==========================================================
-        // ציורים
-        // ==========================================================
-        function createPainting(x, y, z, rotY, color) {
-            const group = new THREE.Group();
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(3.2, 4.2, 0.15), paintingFrameMat);
-            const canvas = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 3.8), new THREE.MeshStandardMaterial({ color: color, roughness: 0.9 }));
-            canvas.position.z = 0.08;
-            group.add(frame, canvas);
-            group.position.set(x, y, z);
-            group.rotation.y = rotY;
-            scene.add(group);
-        }
-        createPainting(-15, 9, -44.7, 0, 0xd6a35a);
-        createPainting(-44.7, 9, 10, Math.PI / 2, 0x9fbf8f);
-        createPainting(44.7, 9, 10, -Math.PI / 2, 0xd6a35a);
-
-        // ==========================================================
-        // נברשות ותאורת קיר
-        // ==========================================================
-        function createChandelier(x, z) {
-            const group = new THREE.Group();
-            const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 8), chandelierMat);
-            chain.position.y = 14.4;
-            const ringTop = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.08, 8, 24), chandelierMat);
-            ringTop.rotation.x = Math.PI / 2;
-            ringTop.position.y = 12.8;
-            const ringBottom = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.06, 8, 24), chandelierMat);
-            ringBottom.rotation.x = Math.PI / 2;
-            ringBottom.position.y = 11.8;
-            group.add(chain, ringTop, ringBottom);
-
-            for (let i = 0; i < 8; i++) {
-                const angle = (i / 8) * Math.PI * 2;
-                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffdd88, emissiveIntensity: 0.8 }));
-                bulb.position.set(Math.cos(angle) * 1.5, 12.6, Math.sin(angle) * 1.5);
-                group.add(bulb);
-            }
-            const light = new THREE.PointLight(0xffdca8, 0.9, 25);
-            light.position.y = 12.5;
-            group.add(light);
-
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-        createChandelier(0, -2);
-        createChandelier(0, 10);
-        createChandelier(-25, -25);
-        createChandelier(15, -35);
-
-        function createWallSconce(x, y, z, rotY) {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.3, 8), chandelierMat);
-            base.rotation.z = Math.PI / 2;
-            const shade = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.4, 8, 1, true), new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffcc66, emissiveIntensity: 0.6, side: THREE.DoubleSide }));
-            shade.rotation.x = Math.PI;
-            shade.position.x = 0.3;
-            group.add(base, shade);
-            const light = new THREE.PointLight(0xffcc88, 0.4, 10);
-            light.position.x = 0.3;
-            group.add(light);
-            group.position.set(x, y, z);
-            group.rotation.y = rotY;
-            scene.add(group);
-        }
-        for (let i = -30; i <= 30; i += 20) {
-            createWallSconce(-44.5, 7, i, Math.PI / 2);
-            createWallSconce(44.5, 7, i, -Math.PI / 2);
-        }
-
-        // ==========================================================
-        // מערכת גובה קרקע - אין יותר מדרגות פיזיות; המעבר בין קומות
-        // קורה רק דרך המעלית (שמעדכנת playerCurrentFloorIdx ישירות)
-        // ==========================================================
-        let playerCurrentFloorIdx = 0;
-        function getFloorHeight(x, z) {
-            if (x > MEZZ.xMin && x < MEZZ.xMax && z > MEZZ.zMin && z < FLOOR_ZMAX) {
-                return FLOOR_HEIGHTS[playerCurrentFloorIdx];
-            }
-            return 0;
-        }
-
-        // ==========================================================
-        // דמות השחקן (ללא שינוי - בדיוק לפי המקור)
-        // ==========================================================
-        const playerGroup = new THREE.Group();
-
-        const redSuitMat = new THREE.MeshStandardMaterial({ color: 0xe84118, roughness: 0.5 });
-        const purplePantsMat = new THREE.MeshStandardMaterial({ color: 0x4c274c, roughness: 0.5 });
-        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffcd94, roughness: 0.6 });
-        const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbc531, metalness: 0.5, roughness: 0.2 });
-
-        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 1.6, 16), redSuitMat);
-        torso.position.y = 2.0;
-        torso.castShadow = true;
-        playerGroup.add(torso);
-
-        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.08, 8, 16, Math.PI), goldMat);
-        collar.rotation.x = Math.PI / 2;
-        collar.position.set(0, 2.7, 0.2);
-        playerGroup.add(collar);
-
-        const buttonGeo = new THREE.SphereGeometry(0.08, 8, 8);
-        const b1 = new THREE.Mesh(buttonGeo, goldMat); b1.position.set(0.15, 2.2, 0.65);
-        const b2 = new THREE.Mesh(buttonGeo, goldMat); b2.position.set(-0.15, 2.2, 0.65);
-        const b3 = new THREE.Mesh(buttonGeo, goldMat); b3.position.set(0.15, 1.9, 0.65);
-        const b4 = new THREE.Mesh(buttonGeo, goldMat); b4.position.set(-0.15, 1.9, 0.65);
-        playerGroup.add(b1, b2, b3, b4);
-
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.65, 32, 32), skinMat);
-        head.position.y = 3.3;
-        head.scale.set(1, 1.1, 1);
-        head.castShadow = true;
-        playerGroup.add(head);
-
-        const hatGroup = new THREE.Group();
-        const hatBase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 24), redSuitMat);
-        const hatGoldLine = new THREE.Mesh(new THREE.CylinderGeometry(0.51, 0.51, 0.08, 24), goldMat);
-        hatGoldLine.position.y = -0.1;
-        hatGroup.add(hatBase, hatGoldLine);
-        hatGroup.position.set(0, 3.9, 0);
-        hatGroup.rotation.x = 0.1;
-        playerGroup.add(hatGroup);
-
-        const legGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.1, 16);
-        const leftLeg = new THREE.Mesh(legGeo, purplePantsMat);
-        leftLeg.position.set(-0.25, 0.75, 0);
-        leftLeg.castShadow = true;
-        playerGroup.add(leftLeg);
-
-        const rightLeg = new THREE.Mesh(legGeo, purplePantsMat);
-        rightLeg.position.set(0.25, 0.75, 0);
-        rightLeg.castShadow = true;
-        playerGroup.add(rightLeg);
-
-        const shoeGeo = new THREE.SphereGeometry(0.25, 16, 16);
-        const leftShoe = new THREE.Mesh(shoeGeo, redSuitMat);
-        leftShoe.position.set(-0.25, 0.2, 0.1);
-        leftShoe.scale.set(1, 0.8, 1.4);
-        const rightShoe = new THREE.Mesh(shoeGeo, redSuitMat);
-        rightShoe.position.set(0.25, 0.2, 0.1);
-        rightShoe.scale.set(1, 0.8, 1.4);
-        playerGroup.add(leftShoe, rightShoe);
-
-        const armGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.1, 16);
-        const leftArm = new THREE.Mesh(armGeo, redSuitMat);
-        leftArm.position.set(-0.85, 2.0, 0);
-        leftArm.rotation.z = 0.05;
-
-        const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), skinMat);
-        leftHand.position.set(-0.85, 1.4, 0);
-
-        const rightArm = new THREE.Mesh(armGeo, redSuitMat);
-        rightArm.position.set(0.85, 2.0, 0);
-        rightArm.rotation.z = -0.05;
-
-        const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), skinMat);
-        rightHand.position.set(0.85, 1.4, 0);
-
-        playerGroup.add(leftArm, leftHand, rightArm, rightHand);
-
-        playerGroup.position.set(0, 0, 10);
-        scene.add(playerGroup);
-
-        let promptTimeout;
-
-        function showPrompt(msg) {
-            const el = document.getElementById('hud-message');
-            el.textContent = msg;
-            el.classList.add('show');
-            clearTimeout(promptTimeout);
-            promptTimeout = setTimeout(() => el.classList.remove('show'), 2800);
-        }
-
-        function horizontalDist(a, b) {
-            const dx = a.x - b.x, dz = a.z - b.z;
-            return Math.sqrt(dx * dx + dz * dz);
-        }
-
-        // ==========================================================
-        // מערכת כסף
-        // ==========================================================
-        let money = 0;
-        function updateMoneyUI() {
-            document.getElementById('money-value').textContent = money;
-        }
-        function addMoney(amount) {
-            money += amount;
-            updateMoneyUI();
-            saveGame();
-        }
-        function spendMoney(amount) {
-            if (money < amount) return false;
-            money -= amount;
-            updateMoneyUI();
-            saveGame();
-            return true;
-        }
-        updateMoneyUI();
-
-        // ==========================================================
-        // חדרים לרכישה - קומה 2 עד קומה 9
-        // המחירים ממשיכים ברצף גלובלי אחד על פני כל הקומות (לא מתאפסים בכל קומה)
-        // ==========================================================
-        function computeRoomLadder(count) {
-            const arr = [];
-            let prev = 0;
-            for (let n = 1; n <= count; n++) {
-                const price = n === 1 ? 50 : prev + 50 * (n - 1);
-                arr.push(price);
-                prev = price;
-            }
-            return arr;
-        }
-        const TOTAL_ROOM_SLOTS = 10 + 6 * 13;      // קומה 2 + 6 קומות נוספות (קומה 3 הפכה לחדר אוכל)
-        const GLOBAL_ROOM_PRICES = computeRoomLadder(TOTAL_ROOM_SLOTS);
-        const TOTAL_CLEANER_SLOTS = 5 + 6 * 5;
-        const GLOBAL_CLEANER_PRICES = [];
-        for (let n = 1; n <= TOTAL_CLEANER_SLOTS; n++) GLOBAL_CLEANER_PRICES.push(100 * n);
-
-        const newRoomSlots = [
-            { x: 3, z: -41, number: '204' },
-            { x: -9, z: -41, number: '205' },
-            { x: -21, z: -41, number: '206' },
-            { x: -33, z: -41, number: '207' },
-            { x: 3, z: -31, number: '208' },
-            { x: -9, z: -31, number: '209' },
-            { x: -21, z: -31, number: '210' },
-            { x: -33, z: -31, number: '211' },
-            { x: 15, z: -31, number: '212' },
-            { x: 27, z: -31, number: '213' },
-        ].map((slot, i) => ({ ...slot, price: GLOBAL_ROOM_PRICES[i], purchased: false, tile: null, floorIdx: 1 }));
-
-        function createPriceTile(price) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(45,27,78,0.85)';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, 244, 244);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 42px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('💵', 128, 90);
-            ctx.font = 'bold 34px Arial';
-            ctx.fillText(price + '', 128, 150);
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText('לחץ E לקנייה', 128, 200);
-            const texture = new THREE.CanvasTexture(canvas);
-            const tile = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ map: texture, transparent: true }));
-            tile.rotation.x = -Math.PI / 2;
-            return tile;
-        }
-
-        newRoomSlots.forEach(slot => {
-            const tile = createPriceTile(slot.price);
-            tile.position.set(slot.x, MEZZ.height + 0.05, slot.z);
-            tile.visible = false; // הנראות נקבעת ע"י refreshRoomTileVisibility()
-            scene.add(tile);
-            slot.tile = tile;
-        });
-
-        function buildPurchasedRoomOnFloor(slot) {
-            const colors = [0xd63031, 0x0984e3, 0x00b894, 0xe17055, 0x6c5ce7, 0xfdcb6e, 0x00cec9, 0xe84393, 0x636e72, 0x0fb9b1];
-            const accent = colors[Math.floor(Math.random() * colors.length)];
-            const height = FLOOR_HEIGHTS[slot.floorIdx];
-            createHotelRoom(slot.x, slot.z, slot.number, accent, height, slot.floorIdx);
-            roomPositions[slot.number] = { x: slot.x, z: slot.z, floorIdx: slot.floorIdx };
-            allRoomNumbers.push(slot.number);
-        }
-
-        // ==========================================================
-        // מנקות (עוזרות ניקיון) - נקנות ליד המדרגות בקומה 2, מנקות חדרים אוטומטית
-        // ==========================================================
-        function createCleanerMesh() {
-            const group = new THREE.Group();
-            const jacketMat = new THREE.MeshStandardMaterial({ color: 0x6fb3ad, roughness: 0.6 });
-            const dressMat = new THREE.MeshStandardMaterial({ color: 0x546a80, roughness: 0.6 });
-            const hairMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.7 });
-            const shoeMat = new THREE.MeshStandardMaterial({ color: 0xa9704a, roughness: 0.6 });
-
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 1.2, 12), jacketMat);
-            body.position.y = 1.05;
-            body.castShadow = true;
-            const dressPanel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.0, 0.06), dressMat);
-            dressPanel.position.set(0, 1.0, 0.32);
-            group.add(body, dressPanel);
-
-            const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.85, 10);
-            const leftLeg = new THREE.Mesh(legGeo, dressMat);
-            leftLeg.position.set(-0.16, 0.42, 0);
-            const rightLeg = new THREE.Mesh(legGeo, dressMat);
-            rightLeg.position.set(0.16, 0.42, 0);
-            group.add(leftLeg, rightLeg);
-
-            const shoeGeo = new THREE.BoxGeometry(0.22, 0.18, 0.32);
-            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            leftShoe.position.set(-0.16, 0.09, 0.05);
-            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            rightShoe.position.set(0.16, 0.09, 0.05);
-            group.add(leftShoe, rightShoe);
-
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skinMat);
-            head.position.y = 1.85;
-            head.castShadow = true;
-            group.add(head);
-
-            const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), hairMat);
-            hairCap.position.y = 1.92;
-            group.add(hairCap);
-            const hairBack = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.5, 12), hairMat);
-            hairBack.position.set(0, 1.62, -0.08);
-            group.add(hairBack);
-
-            // מטלית צהובה ביד שמאל
-            const duster = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.9 }));
-            duster.scale.set(1, 1.4, 0.7);
-            duster.position.set(-0.42, 0.75, 0.15);
-            group.add(duster);
-
-            // דלי אפור ביד ימין
-            const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.11, 0.22, 12), new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.5, metalness: 0.2 }));
-            bucket.position.set(0.42, 0.65, 0.1);
-            group.add(bucket);
-
-            group.scale.set(1.9, 1.9, 1.9);
-            return group;
-        }
-
-        function createCleanerPriceTile(price) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(20,50,60,0.85)';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#3ec6ff'; ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, 244, 244);
-            ctx.fillStyle = '#3ec6ff';
-            ctx.font = 'bold 40px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🧹', 128, 78);
-            ctx.font = 'bold 30px Arial';
-            ctx.fillText('מנקה', 128, 128);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText('💵 ' + price, 128, 170);
-            ctx.fillStyle = '#3ec6ff';
-            ctx.font = 'bold 18px Arial';
-            ctx.fillText('לחץ E לקנייה', 128, 205);
-            const texture = new THREE.CanvasTexture(canvas);
-            const tile = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshStandardMaterial({ map: texture, transparent: true }));
-            tile.rotation.x = -Math.PI / 2;
-            return tile;
-        }
-
-        const cleaners = [];
-        const roomsBeingCleaned = new Set();
-
-        const cleanerSlots = [
-            { x: STAIR.cx, z: -16 },
-            { x: STAIR.cx, z: -19 },
-            { x: STAIR.cx, z: -22 },
-            { x: STAIR.cx, z: -25 },
-            { x: STAIR.cx, z: -28 },
-        ].map((slot, i) => ({ ...slot, price: GLOBAL_CLEANER_PRICES[i], purchased: false, tile: null, floorIdx: 1 }));
-
-        cleanerSlots.forEach(slot => {
-            const tile = createCleanerPriceTile(slot.price);
-            tile.position.set(slot.x, MEZZ.height + 0.05, slot.z);
-            tile.visible = false;
-            scene.add(tile);
-            slot.tile = tile;
-        });
-
-        function hireCleaner(slot, floorHeight = MEZZ.height, floorIdx = 1) {
-            const mesh = createCleanerMesh();
-            mesh.position.set(slot.x, floorHeight, slot.z);
-            scene.add(mesh);
-            cleaners.push({
-                mesh, state: 'idle', path: null, pathIndex: 0, timer: 0, targetRoom: null,
-                searchCooldown: 0, homePos: { x: slot.x, y: floorHeight, z: slot.z }, floorIdx,
-            });
-        }
-
-        // ==========================================================
-        // קומות 3 עד 9 - אותה כמות בדיוק של חדרים (13) ומנקים (5) כמו בקומה 2,
-        // רק שכולם ניתנים לרכישה (בלי חדרים חינמיים) בכל קומה
-        // ==========================================================
-        const ROOM_ROW1_X = [-33, -21, -9, 3, 15, 27, 39];
-        const ROOM_ROW2_X = [-33, -21, -9, 3, 15, 27];
-
-        function buildFloorRoomSlots(floorIdx, prices) {
-            const height = FLOOR_HEIGHTS[floorIdx];
-            const floorNum = floorIdx + 1; // floorIdx 2 => קומה 3
-            const positions = [
-                ...ROOM_ROW1_X.map(x => ({ x, z: -41 })),
-                ...ROOM_ROW2_X.map(x => ({ x, z: -31 })),
-            ];
-            const slots = positions.map((pos, i) => ({
-                x: pos.x, z: pos.z, price: prices[i], purchased: false, tile: null,
-                number: `${floorNum}${String(i + 1).padStart(2, '0')}`,
-                floorIdx,
-            }));
-            slots.forEach(slot => {
-                const tile = createPriceTile(slot.price);
-                tile.position.set(slot.x, height + 0.05, slot.z);
-                tile.visible = false;
-                scene.add(tile);
-                slot.tile = tile;
-            });
-            return slots;
-        }
-
-        function buildFloorCleanerSlots(floorIdx, prices) {
-            const height = FLOOR_HEIGHTS[floorIdx];
-            const slots = [-16, -19, -22, -25, -28].map((z, i) => ({
-                x: STAIR.cx, z, price: prices[i], purchased: false, tile: null, floorIdx,
-            }));
-            slots.forEach(slot => {
-                const tile = createCleanerPriceTile(slot.price);
-                tile.position.set(slot.x, height + 0.05, slot.z);
-                tile.visible = false;
-                scene.add(tile);
-                slot.tile = tile;
-            });
-            return slots;
-        }
-
-        const allFloorRoomSlots = [];    // כל קומה עם חדרים למכירה (לא כולל קומה 3, שהיא חדר אוכל)
-        const allFloorCleanerSlots = [];
-        const HOTEL_FLOORS = [3, 4, 5, 6, 7, 8]; // floorIdx של קומות 4 עד 9 (קומה 3 = חדר אוכל, לא כאן)
-        HOTEL_FLOORS.forEach((f, i) => {
-            const roomStart = 10 + i * 13;
-            const cleanerStart = 5 + i * 5;
-            allFloorRoomSlots.push(buildFloorRoomSlots(f, GLOBAL_ROOM_PRICES.slice(roomStart, roomStart + 13)));
-            allFloorCleanerSlots.push(buildFloorCleanerSlots(f, GLOBAL_CLEANER_PRICES.slice(cleanerStart, cleanerStart + 5)));
-        });
-
-        // --- רצף גלובלי אחד לחדרים (ורצף גלובלי נפרד למנקות), על פני כל הקומות ---
-        const roomSlotGroups = [newRoomSlots, ...allFloorRoomSlots];
-        const cleanerSlotGroups = [cleanerSlots, ...allFloorCleanerSlots];
-
-        function getGlobalNextSlot(groups) {
-            for (const group of groups) {
-                const next = group.find(s => !s.purchased);
-                if (next) return next;
-            }
-            return null;
-        }
-
-        function refreshRoomTileVisibility() {
-            roomSlotGroups.forEach(group => group.forEach(s => { s.tile.visible = false; }));
-            const next = getGlobalNextSlot(roomSlotGroups);
-            if (next) next.tile.visible = true;
-        }
-
-        function refreshCleanerTileVisibility() {
-            cleanerSlotGroups.forEach(group => group.forEach(s => { s.tile.visible = false; }));
-            const next = getGlobalNextSlot(cleanerSlotGroups);
-            if (next) next.tile.visible = true;
-        }
-
-        function tryPurchaseGlobalNextRoom() {
-            const slot = getGlobalNextSlot(roomSlotGroups);
-            if (!slot) return;
-            if (Math.abs(playerGroup.position.y - FLOOR_HEIGHTS[slot.floorIdx]) > 1.5) return;
-            if (horizontalDist(playerGroup.position, { x: slot.x, z: slot.z }) >= 4) return;
-            if (spendMoney(slot.price)) {
-                slot.purchased = true;
-                buildPurchasedRoomOnFloor(slot);
-                showPrompt(`נרכש חדר ${slot.number}! 🎉`);
-                refreshRoomTileVisibility();
-                saveGame();
-            } else {
-                showPrompt(`אין מספיק כסף לקניית חדר ${slot.number}! חסר לך ${slot.price - money} 💵`);
-            }
-        }
-
-        function tryPurchaseGlobalNextCleaner() {
-            const slot = getGlobalNextSlot(cleanerSlotGroups);
-            if (!slot) return;
-            if (Math.abs(playerGroup.position.y - FLOOR_HEIGHTS[slot.floorIdx]) > 1.5) return;
-            if (horizontalDist(playerGroup.position, { x: slot.x, z: slot.z }) >= 4) return;
-            if (spendMoney(slot.price)) {
-                slot.purchased = true;
-                hireCleaner(slot, FLOOR_HEIGHTS[slot.floorIdx], slot.floorIdx);
-                showPrompt('נשכרה מנקה חדשה! 🧹');
-                refreshCleanerTileVisibility();
-                saveGame();
-            } else {
-                showPrompt(`אין מספיק כסף לשכירת מנקה! חסר לך ${slot.price - money} 💵`);
-            }
-        }
-
-        refreshRoomTileVisibility();
-        refreshCleanerTileVisibility();
-
-        function updateCleaners(delta) {
-            cleaners.forEach(c => {
-                if (c.state === 'idle') {
-                    let targetRoom = null;
-                    dirtyRooms.forEach((spots, room) => {
-                        if (targetRoom || roomsBeingCleaned.has(room)) return;
-                        const rp = roomPositions[room];
-                        if (!rp || rp.floorIdx !== c.floorIdx) return;
-                        targetRoom = room;
-                    });
-                    if (targetRoom && roomPositions[targetRoom]) {
-                        roomsBeingCleaned.add(targetRoom);
-                        c.targetRoom = targetRoom;
-                        const roomPos = roomPositions[targetRoom];
-                        c.path = [{ x: roomPos.x, y: c.homePos.y, z: roomPos.z }];
-                        c.pathIndex = 0;
-                        c.state = 'toRoom';
-                        showPrompt(`המנקה יוצאת לנקות את חדר ${targetRoom}! 🧹`);
-                    }
-                } else if (c.state === 'toRoom' || c.state === 'toHome') {
-                    const wp = c.path[c.pathIndex];
-                    const dir = new THREE.Vector3(wp.x - c.mesh.position.x, 0, wp.z - c.mesh.position.z);
-                    const dist = dir.length();
-                    c.mesh.position.y += (wp.y - c.mesh.position.y) * 0.15;
-                    if (dist < 0.4) {
-                        c.pathIndex++;
-                        if (c.pathIndex >= c.path.length) {
-                            if (c.state === 'toRoom') {
-                                c.state = 'cleaning';
-                                c.timer = 4;
-                            } else {
-                                c.state = 'idle';
-                            }
-                        }
-                    } else {
-                        dir.normalize();
-                        c.mesh.position.addScaledVector(dir, Math.min(0.09, dist));
-                        c.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (c.state === 'cleaning') {
-                    c.timer -= delta;
-                    if (c.timer <= 0) {
-                        const room = c.targetRoom;
-                        const spots = dirtyRooms.get(room);
-                        if (spots) {
-                            spots.forEach(s => { if (!s.cleaned) { s.cleaned = true; scene.remove(s.mesh); } });
-                            dirtyRooms.delete(room);
-                            showPrompt(`המנקה סיימה לנקות את חדר ${room}! ✨`);
-                        }
-                        roomsBeingCleaned.delete(room);
-                        c.targetRoom = null;
-                        c.path = [{ x: c.homePos.x, y: c.homePos.y, z: c.homePos.z }];
-                        c.pathIndex = 0;
-                        c.state = 'toHome';
-                    }
-                }
-            });
-        }
-
-        // ==========================================================
-        // פקידי קבלה - עד 3 בלבד (150, 300, 450), כל אחד מטפל באורח תוך 3 שניות
-        // כמה פקידים עובדים במקביל, כל אחד על אורח אחר
-        // ==========================================================
-        function createReceptionistMesh() {
-            const group = new THREE.Group();
-            const blazerMat = new THREE.MeshStandardMaterial({ color: 0x2d1b4e, roughness: 0.55 });
-            const shirtMat = new THREE.MeshStandardMaterial({ color: 0xf1f2f6, roughness: 0.6 });
-            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x22252b, roughness: 0.6 });
-            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
-            const hairColors = [0x2b1b12, 0x4a2e18, 0x6b4423, 0x1c1c1c];
-            const hairMat = new THREE.MeshStandardMaterial({ color: hairColors[Math.floor(Math.random() * hairColors.length)], roughness: 0.7 });
-
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 1.2, 12), blazerMat);
-            body.position.y = 1.05;
-            body.castShadow = true;
-            const shirtPanel = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.0, 0.05), shirtMat);
-            shirtPanel.position.set(0, 1.05, 0.32);
-            group.add(body, shirtPanel);
-
-            const badgeMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3 });
-            const badge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.02), badgeMat);
-            badge.position.set(0.2, 1.3, 0.36);
-            group.add(badge);
-
-            const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.85, 10);
-            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
-            leftLeg.position.set(-0.16, 0.42, 0);
-            const rightLeg = new THREE.Mesh(legGeo, pantsMat);
-            rightLeg.position.set(0.16, 0.42, 0);
-            group.add(leftLeg, rightLeg);
-
-            const shoeGeo = new THREE.BoxGeometry(0.22, 0.18, 0.32);
-            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            leftShoe.position.set(-0.16, 0.09, 0.05);
-            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            rightShoe.position.set(0.16, 0.09, 0.05);
-            group.add(leftShoe, rightShoe);
-
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skinMat);
-            head.position.y = 1.85;
-            head.castShadow = true;
-            group.add(head);
-
-            const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), hairMat);
-            hairCap.position.y = 1.9;
-            group.add(hairCap);
-
-            group.scale.set(1.9, 1.9, 1.9);
-            return group;
-        }
-
-        function createReceptionistPriceTile(price) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(45,27,78,0.85)';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, 244, 244);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 40px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🧑‍💼', 128, 78);
-            ctx.font = 'bold 26px Arial';
-            ctx.fillText('פקיד קבלה', 128, 128);
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText('💵 ' + price, 128, 170);
-            ctx.font = 'bold 18px Arial';
-            ctx.fillText('לחץ E לשכירה', 128, 205);
-            const texture = new THREE.CanvasTexture(canvas);
-            const tile = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ map: texture, transparent: true }));
-            tile.rotation.x = -Math.PI / 2;
-            return tile;
-        }
-
-        const receptionists = [];
-        const receptionistSlots = [
-            { x: 11, z: -2, price: 150, purchased: false, tile: null },
-            { x: 14, z: -2, price: 300, purchased: false, tile: null },
-            { x: 17, z: -2, price: 450, purchased: false, tile: null },
-        ];
-
-        receptionistSlots.forEach((slot, i) => {
-            const tile = createReceptionistPriceTile(slot.price);
-            tile.position.set(slot.x, 0.05, slot.z);
-            tile.visible = (i === 0);
-            scene.add(tile);
-            slot.tile = tile;
-        });
-
-        // מיקומי עמידה קבועים מאחורי דלפק הקבלה עצמו (לא במקום הריבוע שנשאר בצד)
-        const RECEPTIONIST_DESK_POS = [
-            { x: -4, z: -4.3 },
-            { x: 0, z: -4.3 },
-            { x: 4, z: -4.3 },
-        ];
-
-        function hireReceptionist(slot) {
-            const idx = receptionistSlots.indexOf(slot);
-            const deskPos = RECEPTIONIST_DESK_POS[idx] || RECEPTIONIST_DESK_POS[RECEPTIONIST_DESK_POS.length - 1];
-            const mesh = createReceptionistMesh();
-            mesh.position.set(deskPos.x, 0, deskPos.z);
-            mesh.rotation.y = 0; // פונה לכיוון הלובי/האורחים
-            scene.add(mesh);
-            receptionists.push({ mesh, state: 'idle', timer: 0, guest: null, room: null });
-        }
-
-        function tryPurchaseNextReceptionist() {
-            const nextSlot = receptionistSlots.find(s => !s.purchased);
-            if (!nextSlot) return;
-            if (horizontalDist(playerGroup.position, { x: nextSlot.x, z: nextSlot.z }) >= 4) return;
-            if (spendMoney(nextSlot.price)) {
-                nextSlot.purchased = true;
-                nextSlot.tile.visible = false;
-                hireReceptionist(nextSlot);
-                showPrompt('נשכר פקיד קבלה חדש! 🧑‍💼');
-                const idx = receptionistSlots.indexOf(nextSlot);
-                if (receptionistSlots[idx + 1]) receptionistSlots[idx + 1].tile.visible = true;
-                saveGame();
-            } else {
-                showPrompt(`אין מספיק כסף לשכירת פקיד קבלה! חסר לך ${nextSlot.price - money} 💵`);
-            }
-        }
-
-        function updateReceptionists(delta) {
-            receptionists.forEach(r => {
-                if (r.state === 'idle') {
-                    const freeRoom = allRoomNumbers.find(rm => !occupiedRooms.has(rm) && !dirtyRooms.has(rm));
-                    if (!freeRoom) return;
-                    const guest = guests.find(g => g.state === 'waitingAtDesk' && !g.beingHandled);
-                    if (!guest) return;
-                    guest.beingHandled = true;
-                    occupiedRooms.add(freeRoom);
-                    const dqIdx = deskQueue.indexOf(guest);
-                    if (dqIdx !== -1) deskQueue.splice(dqIdx, 1);
-                    r.guest = guest;
-                    r.room = freeRoom;
-                    r.timer = 3;
-                    r.state = 'processing';
-                } else if (r.state === 'processing') {
-                    r.timer -= delta;
-                    if (r.timer <= 0) {
-                        const roomIndex = allRoomNumbers.indexOf(r.room);
-                        const payment = 25 + roomIndex * 8 + Math.floor(Math.random() * 10);
-                        addMoney(payment);
-                        showPrompt(`פקיד הקבלה נתן חדר ${r.room} לאורח! +${payment} 💵`);
-                        guestsServedCount++;
-                        saveGame();
-                        r.guest.room = r.room;
-                        r.guest.path = buildPathToRoom(r.room);
-                        r.guest.pathIndex = 0;
-                        r.guest.state = 'toRoom';
-                        r.guest = null;
-                        r.room = null;
-                        r.state = 'idle';
-                    }
-                }
-            });
-        }
-
-        // ==========================================================
-        // שירותים - דלת פתוחה תמיד ליד הכניסה (צד ימין, קומת קרקע)
-        // חדר נייר טואלט + 3 תאים. אורחים משתמשים בתאים מדי פעם,
-        // ואז צריך למלא נייר טואלט כדי שהתא יהיה שוב שמיש.
-        // ==========================================================
-        const restroomFloorMat = new THREE.MeshStandardMaterial({ color: 0xdcecec, roughness: 0.5 });
-        const stallWallMat = new THREE.MeshStandardMaterial({ color: 0xb8c9c9, roughness: 0.6 });
-        const toiletMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-        const paperRollMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-
-        // רצפת השירותים - סימון ויזואלי לאזור
-        const restroomFloor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), restroomFloorMat);
-        restroomFloor.rotation.x = -Math.PI / 2;
-        restroomFloor.position.set(37, 0.02, 33);
-        restroomFloor.receiveShadow = true;
-        scene.add(restroomFloor);
-
-        // מסגרת דלת פתוחה + שלט "שירותים"
-        function createOpenDoorFrame(x, z, rotY, label) {
-            const group = new THREE.Group();
-            const frameMat = new THREE.MeshStandardMaterial({ color: 0x6b3f2a, roughness: 0.6 });
-            const top = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 0.25), frameMat);
-            top.position.y = 3.4;
-            const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.4, 0.25), frameMat);
-            sideL.position.set(-1.5, 1.7, 0);
-            const sideR = sideL.clone();
-            sideR.position.set(1.5, 1.7, 0);
-            group.add(top, sideL, sideR);
-
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 80;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d1b4e';
-            ctx.fillRect(0, 0, 256, 80);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 4; ctx.strokeRect(3, 3, 250, 74);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 26px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, 128, 40);
-            const texture = new THREE.CanvasTexture(canvas);
-            const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.7), new THREE.MeshStandardMaterial({ map: texture }));
-            sign.position.set(0, 3.9, 0);
-            group.add(sign);
-
-            group.position.set(x, 0, z);
-            group.rotation.y = rotY;
-            scene.add(group);
-        }
-        createOpenDoorFrame(37, 40, 0, '🚻 שירותים');
-
-        // חדר נייר טואלט - ממול לשירותים (לא צמוד להם), מתקן אינסופי לקיחת נייר
-        const TOILET_SUPPLY_POS = { x: 18, z: 40 };
-        function createSupplyNook(x, z, rotY) {
-            const group = new THREE.Group();
-            const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 0.6), new THREE.MeshStandardMaterial({ color: 0xe8ded0, roughness: 0.6 }));
-            cabinet.position.set(0, 0.7, 0);
-            cabinet.castShadow = true;
-            group.add(cabinet);
-            for (let i = 0; i < 5; i++) {
-                const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.22, 14), paperRollMat);
-                roll.rotation.z = Math.PI / 2;
-                roll.position.set(-0.5 + (i % 3) * 0.5, 1.55 + Math.floor(i / 3) * 0.24, 0);
-                group.add(roll);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = 200; canvas.height = 70;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d1b4e';
-            ctx.fillRect(0, 0, 200, 70);
-            ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 3; ctx.strokeRect(3, 3, 194, 64);
-            ctx.fillStyle = '#fbc531';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🧻 חדר נייר טואלט', 100, 35);
-            const texture = new THREE.CanvasTexture(canvas);
-            const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.6), new THREE.MeshStandardMaterial({ map: texture }));
-            sign.position.set(0, 2.1, 0);
-            group.add(sign);
-            group.position.set(x, 0, z);
-            group.rotation.y = rotY || 0;
-            scene.add(group);
-        }
-        createSupplyNook(TOILET_SUPPLY_POS.x, TOILET_SUPPLY_POS.z, -Math.PI / 2); // פונה לכיוון השירותים
-
-        function createToiletIndicator() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(214,48,49,0.92)';
-            ctx.beginPath();
-            ctx.arc(64, 64, 55, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.font = '58px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🧻', 64, 68);
-            const texture = new THREE.CanvasTexture(canvas);
-            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
-            return mesh;
-        }
-
-        function createStall(x, z) {
-            const group = new THREE.Group();
-            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 1.6), stallWallMat);
-            leftWall.position.set(-0.9, 0.8, 0);
-            const rightWall = leftWall.clone();
-            rightWall.position.set(0.9, 0.8, 0);
-            const backWall = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.6, 0.15), stallWallMat);
-            backWall.position.set(0, 0.8, -0.8);
-            const toilet = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.5, 16), toiletMat);
-            toilet.position.set(0, 0.25, -0.4);
-            const tank = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, 0.18), toiletMat);
-            tank.position.set(0, 0.75, -0.7);
-            [leftWall, rightWall, backWall, toilet, tank].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-
-        const toiletStalls = [
-            { id: 0, x: 34, z: 29, hasPaper: true, occupied: false, indicatorMesh: null },
-            { id: 1, x: 37, z: 29, hasPaper: true, occupied: false, indicatorMesh: null },
-            { id: 2, x: 40, z: 29, hasPaper: true, occupied: false, indicatorMesh: null },
-        ];
-        toiletStalls.forEach(s => {
-            createStall(s.x, s.z);
-            const indicator = createToiletIndicator();
-            indicator.position.set(s.x, 2.1, s.z);
-            indicator.visible = false;
-            scene.add(indicator);
-            s.indicatorMesh = indicator;
-        });
-
-        function updateStallIndicator(stall) {
-            stall.indicatorMesh.visible = !stall.hasPaper;
-        }
-
-        function findNearestEmptyStall() {
-            let best = null, bestDist = Infinity;
-            toiletStalls.forEach(s => {
-                if (s.hasPaper) return;
-                const d = horizontalDist(playerGroup.position, s);
-                if (d < 2.2 && d < bestDist) { bestDist = d; best = s; }
-            });
-            return best;
-        }
-
-        // --- נייר טואלט שהשחקן נושא ביד (עד 3) ---
-        let playerToiletPaper = 0;
-        const playerToiletPaperMeshes = [];
-        function updateToiletPaperHandVisual() {
-            while (playerToiletPaperMeshes.length) {
-                playerGroup.remove(playerToiletPaperMeshes.pop());
-            }
-            for (let i = 0; i < playerToiletPaper; i++) {
-                const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 12), paperRollMat);
-                roll.rotation.z = Math.PI / 2;
-                roll.position.set(0.85, 1.5 + i * 0.24, 0.1);
-                playerGroup.add(roll);
-                playerToiletPaperMeshes.push(roll);
-            }
-        }
-
-        function tryTakeToiletPaper() {
-            if (horizontalDist(playerGroup.position, TOILET_SUPPLY_POS) >= 2.5) return;
-            if (playerToiletPaper >= 3) {
-                showPrompt('אתה כבר מחזיק 3 גלילי נייר טואלט - זה המקסימום! 🧻');
-                return;
-            }
-            playerToiletPaper++;
-            updateToiletPaperHandVisual();
-            showPrompt(`לקחת נייר טואלט! (${playerToiletPaper}/3) 🧻`);
-            saveGame();
-        }
-
-        function performRestock(stall) {
-            if (playerToiletPaper <= 0) {
-                showPrompt('אין לך נייר טואלט! לך תיקח נייר טואלט מחדר נייר הטואלט 🧻');
-                return;
-            }
-            playerToiletPaper--;
-            updateToiletPaperHandVisual();
-            stall.hasPaper = true;
-            updateStallIndicator(stall);
-            showPrompt('מילאת נייר טואלט בתא! 🧻');
-            saveGame();
-        }
-
-        // --- אורחים "מבקרים" בשירותים מדי פעם - נכנסים דרך הכניסה, משתמשים בתא 3 שניות, ויוצאים ---
-        const toiletVisitors = [];
-        let toiletVisitTimer = 10 + Math.random() * 8;
-
-        function updateToiletVisitors(delta) {
-            toiletVisitTimer -= delta;
-            if (toiletVisitTimer <= 0) {
-                const freeStall = toiletStalls.find(s => s.hasPaper && !s.occupied);
-                if (freeStall) {
-                    freeStall.occupied = true;
-                    const mesh = createGuestMesh();
-                    mesh.position.copy(DOOR_POS);
-                    scene.add(mesh);
-                    toiletVisitors.push({ mesh, state: 'toStall', stall: freeStall, timer: 0 });
-                }
-                toiletVisitTimer = 10 + Math.random() * 8;
-            }
-
-            toiletVisitors.forEach(v => {
-                if (v.state === 'toStall') {
-                    const dir = new THREE.Vector3(v.stall.x - v.mesh.position.x, 0, v.stall.z - v.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.5) {
-                        v.state = 'inStall';
-                        v.timer = 3;
-                        v.mesh.visible = false;
-                    } else {
-                        dir.normalize();
-                        v.mesh.position.addScaledVector(dir, Math.min(0.06, dist));
-                        v.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (v.state === 'inStall') {
-                    v.timer -= delta;
-                    if (v.timer <= 0) {
-                        v.stall.hasPaper = false;
-                        v.stall.occupied = false;
-                        updateStallIndicator(v.stall);
-                        v.mesh.visible = true;
-                        v.state = 'toExit';
-                        addMoney(5);
-                        showPrompt('אורח סיים בשירותים! +5 💵');
-                    }
-                } else if (v.state === 'toExit') {
-                    const dir = new THREE.Vector3(DOOR_POS.x - v.mesh.position.x, 0, DOOR_POS.z - v.mesh.position.z);
-                    const dist = dir.length();
-                    if (dist < 0.6) {
-                        v.state = 'done';
-                    } else {
-                        dir.normalize();
-                        v.mesh.position.addScaledVector(dir, Math.min(0.06, dist));
-                        v.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                }
-            });
-
-            for (let i = toiletVisitors.length - 1; i >= 0; i--) {
-                if (toiletVisitors[i].state === 'done') {
-                    scene.remove(toiletVisitors[i].mesh);
-                    toiletVisitors.splice(i, 1);
-                }
-            }
-        }
-
-
-        // עד לקצב המקסימלי (המהיר) שכבר קיים במשחק. ההתקדמות נשמרת גם אחרי רענון.
-        const RATE_START_MIN = 5, RATE_START_MAX = 7;      // קצב התחלתי (איטי)
-        const RATE_END_MIN = 1.2, RATE_END_MAX = 2.0;      // קצב מקסימלי (המהיר שהיה)
-        const RATE_PROGRESS_GUESTS = 40;                    // אחרי כמה אורחים שהתקבלו מגיעים לקצב המקסימלי
-        let guestsServedCount = 0;
-
-        function nextGuestSpawnDelay() {
-            const t = Math.min(1, guestsServedCount / RATE_PROGRESS_GUESTS);
-            const minI = RATE_START_MIN + (RATE_END_MIN - RATE_START_MIN) * t;
-            const maxI = RATE_START_MAX + (RATE_END_MAX - RATE_START_MAX) * t;
-            return minI + Math.random() * (maxI - minI);
-        }
-
-        // ==========================================================
-        // שמירת התקדמות (localStorage) - נשמר גם אחרי רענון וגם אחרי סגירת הדפדפן
-        // ==========================================================
-        const SAVE_KEY = 'hotelGomaSave_v2';
-
-        function saveGame() {
-            try {
-                const state = {
-                    money,
-                    purchasedRooms: newRoomSlots.map(s => s.purchased),
-                    purchasedCleaners: cleanerSlots.map(s => s.purchased),
-                    purchasedReceptionists: receptionistSlots.map(s => s.purchased),
-                    purchasedWaiters: waiterSlots.map(s => s.purchased),
-                    guestsServedCount,
-                    playerToiletPaper,
-                    stallsHasPaper: toiletStalls.map(s => s.hasPaper),
-                    upperFloorsRooms: allFloorRoomSlots.map(slots => slots.map(s => s.purchased)),
-                    upperFloorsCleaners: allFloorCleanerSlots.map(slots => slots.map(s => s.purchased)),
-                };
-                localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-            } catch (e) {
-                console.warn('שמירת המשחק נכשלה', e);
-            }
-        }
-
-        function loadGame() {
-            try {
-                const raw = localStorage.getItem(SAVE_KEY);
-                if (!raw) return;
-                const state = JSON.parse(raw);
-
-                if (typeof state.money === 'number') {
-                    money = state.money;
-                    updateMoneyUI();
-                }
-
-                if (typeof state.guestsServedCount === 'number') {
-                    guestsServedCount = state.guestsServedCount;
-                }
-
-                if (Array.isArray(state.purchasedRooms)) {
-                    state.purchasedRooms.forEach((purchased, i) => {
-                        if (purchased && newRoomSlots[i] && !newRoomSlots[i].purchased) {
-                            newRoomSlots[i].purchased = true;
-                            buildPurchasedRoomOnFloor(newRoomSlots[i]);
-                        }
-                    });
-                }
-
-                if (Array.isArray(state.purchasedCleaners)) {
-                    state.purchasedCleaners.forEach((purchased, i) => {
-                        if (purchased && cleanerSlots[i] && !cleanerSlots[i].purchased) {
-                            cleanerSlots[i].purchased = true;
-                            hireCleaner(cleanerSlots[i], MEZZ.height, 1);
-                        }
-                    });
-                }
-
-                if (Array.isArray(state.purchasedReceptionists)) {
-                    state.purchasedReceptionists.forEach((purchased, i) => {
-                        if (purchased && receptionistSlots[i] && !receptionistSlots[i].purchased) {
-                            receptionistSlots[i].purchased = true;
-                            receptionistSlots[i].tile.visible = false;
-                            hireReceptionist(receptionistSlots[i]);
-                        }
-                    });
-                    const nextReceptionistSlot = receptionistSlots.find(s => !s.purchased);
-                    receptionistSlots.forEach(s => { if (!s.purchased) s.tile.visible = false; });
-                    if (nextReceptionistSlot) nextReceptionistSlot.tile.visible = true;
-                }
-
-                if (Array.isArray(state.purchasedWaiters)) {
-                    state.purchasedWaiters.forEach((purchased, i) => {
-                        if (purchased && waiterSlots[i] && !waiterSlots[i].purchased) {
-                            waiterSlots[i].purchased = true;
-                            waiterSlots[i].tile.visible = false;
-                            hireWaiter(waiterSlots[i]);
-                        }
-                    });
-                    const nextWaiterSlot = waiterSlots.find(s => !s.purchased);
-                    waiterSlots.forEach(s => { if (!s.purchased) s.tile.visible = false; });
-                    if (nextWaiterSlot) nextWaiterSlot.tile.visible = true;
-                }
-
-                if (typeof state.playerToiletPaper === 'number') {
-                    playerToiletPaper = state.playerToiletPaper;
-                    updateToiletPaperHandVisual();
-                }
-
-                if (Array.isArray(state.stallsHasPaper)) {
-                    state.stallsHasPaper.forEach((hasPaper, i) => {
-                        if (toiletStalls[i]) {
-                            toiletStalls[i].hasPaper = hasPaper;
-                            updateStallIndicator(toiletStalls[i]);
-                        }
-                    });
-                }
-
-                if (Array.isArray(state.upperFloorsRooms)) {
-                    state.upperFloorsRooms.forEach((purchasedArr, floorPos) => {
-                        const slots = allFloorRoomSlots[floorPos];
-                        if (!slots || !Array.isArray(purchasedArr)) return;
-                        purchasedArr.forEach((purchased, i) => {
-                            if (purchased && slots[i] && !slots[i].purchased) {
-                                slots[i].purchased = true;
-                                buildPurchasedRoomOnFloor(slots[i]);
-                            }
-                        });
-                    });
-                }
-
-                if (Array.isArray(state.upperFloorsCleaners)) {
-                    state.upperFloorsCleaners.forEach((purchasedArr, floorPos) => {
-                        const slots = allFloorCleanerSlots[floorPos];
-                        if (!slots || !Array.isArray(purchasedArr)) return;
-                        const floorIdx = floorPos + 2;
-                        purchasedArr.forEach((purchased, i) => {
-                            if (purchased && slots[i] && !slots[i].purchased) {
-                                slots[i].purchased = true;
-                                hireCleaner(slots[i], FLOOR_HEIGHTS[floorIdx], floorIdx);
-                            }
-                        });
-                    });
-                }
-
-                // אחרי שחזור כל הרכישות (בכל הקומות) - קובעים מחדש איזו משבצת אחת גלובלית מוצגת
-                refreshRoomTileVisibility();
-                refreshCleanerTileVisibility();
-            } catch (e) {
-                console.warn('טעינת המשחק נכשלה', e);
-            }
-        }
-
-        loadGame();
-        setInterval(saveGame, 5000); // גיבוי תקופתי, ליתר ביטחון
-        window.addEventListener('beforeunload', saveGame);
-
-        // ==========================================================
-        // אורחים (בוטים) - מגיעים לקבלה, מקבלים חדר, ישנים 6 שניות, יוצאים
-        // ==========================================================
-        function createGuestMesh() {
-            // ארבע דמויות קבועות (2 גברים, 2 נשים) - לכל אורח נבחרת אחת אקראית
-            const variants = [
-                { jacket: 0x9aa1ac, shirt: 0x7c8f52, hair: 0x5c3a21, jeans: 0x35455c, shoe: 0x8a5a35, hairType: 'short' },   // תמונה 1
-                { jacket: 0x9aa1ac, shirt: 0x7c8f52, hair: 0x6b4226, jeans: 0x35455c, shoe: 0x8a5a35, hairType: 'shoulder' }, // תמונה 2
-                { jacket: 0x9aa1ac, shirt: 0x7c8f52, hair: 0x7a5230, jeans: 0x35455c, shoe: 0xc9975f, hairType: 'messy' },   // תמונה 3
-                { jacket: 0x707c89, shirt: 0x7c8f52, hair: 0x5c3a21, jeans: 0x35455c, shoe: 0xc9975f, hairType: 'bob' },     // תמונה 4
-            ];
-            const v = variants[Math.floor(Math.random() * variants.length)];
-
-            const group = new THREE.Group();
-            const jacketMat = new THREE.MeshStandardMaterial({ color: v.jacket, roughness: 0.6 });
-            const shirtMat = new THREE.MeshStandardMaterial({ color: v.shirt, roughness: 0.6 });
-            const jeansMat = new THREE.MeshStandardMaterial({ color: v.jeans, roughness: 0.7 });
-            const shoeMat = new THREE.MeshStandardMaterial({ color: v.shoe, roughness: 0.6 });
-            const hairMat = new THREE.MeshStandardMaterial({ color: v.hair, roughness: 0.7 });
-
-            // גוף - מעיל פתוח עם פס חולצה נראה מלפנים
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 1.2, 12), jacketMat);
-            body.position.y = 1.05;
-            body.castShadow = true;
-            const shirtPanel = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.0, 0.05), shirtMat);
-            shirtPanel.position.set(0, 1.05, 0.32);
-            group.add(body, shirtPanel);
-
-            // רגליים - ג'ינס
-            const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.85, 10);
-            const leftLeg = new THREE.Mesh(legGeo, jeansMat);
-            leftLeg.position.set(-0.16, 0.42, 0);
-            leftLeg.castShadow = true;
-            const rightLeg = new THREE.Mesh(legGeo, jeansMat);
-            rightLeg.position.set(0.16, 0.42, 0);
-            rightLeg.castShadow = true;
-            group.add(leftLeg, rightLeg);
-
-            // נעליים - בלוקים חומים כמו בתמונות
-            const shoeGeo = new THREE.BoxGeometry(0.22, 0.18, 0.32);
-            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            leftShoe.position.set(-0.16, 0.09, 0.05);
-            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
-            rightShoe.position.set(0.16, 0.09, 0.05);
-            group.add(leftShoe, rightShoe);
-
-            // ראש
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skinMat);
-            head.position.y = 1.85;
-            head.castShadow = true;
-            group.add(head);
-
-            // שיער - לפי סוג הדמות
-            if (v.hairType === 'short') {
-                const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), hairMat);
-                hairCap.position.y = 1.9;
-                hairCap.rotation.x = -0.15;
-                group.add(hairCap);
-            } else if (v.hairType === 'messy') {
-                const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.68), hairMat);
-                hairCap.position.y = 1.9;
-                hairCap.rotation.x = -0.1;
-                group.add(hairCap);
-            } else if (v.hairType === 'shoulder') {
-                const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), hairMat);
-                hairCap.position.y = 1.92;
-                group.add(hairCap);
-                const hairBack = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.55, 12), hairMat);
-                hairBack.position.set(0, 1.6, -0.08);
-                group.add(hairBack);
-            } else if (v.hairType === 'bob') {
-                const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.65), hairMat);
-                hairCap.position.y = 1.9;
-                group.add(hairCap);
-                const hairSideL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.28), hairMat);
-                hairSideL.position.set(-0.28, 1.68, 0);
-                const hairSideR = hairSideL.clone();
-                hairSideR.position.set(0.28, 1.68, 0);
-                group.add(hairSideL, hairSideR);
-            }
-
-            // תיק קטן
-            const bag = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.16), new THREE.MeshStandardMaterial({ color: 0x2d3436 }));
-            bag.position.set(0.36, 0.95, 0);
-            group.add(bag);
-
-            group.scale.set(1.9, 1.9, 1.9);
-            return group;
-        }
-
-        const DESK_POS = new THREE.Vector3(0, 0, -1);
-        const MAX_QUEUE = 20; // התור מתמלא כמו תור אמיתי - עד שהוא מגיע כמעט לכניסת המלון
-        const DESK_WAIT_POS = Array.from({ length: MAX_QUEUE }, (_, i) => new THREE.Vector3(0, 0, 1 + i * 2));
-        const DOOR_POS = new THREE.Vector3(0, 0, 43);
-
-        const guests = [];
-        const deskQueue = []; // סדר האורחים בתור בפועל - מהראש (הכי קרוב לדלפק) לסוף (הכי קרוב לדלת)
-        let guestSpawnTimer = 3;
-
-        function spawnGuest() {
-            if (deskQueue.length >= MAX_QUEUE) return;
-            const mesh = createGuestMesh();
-            mesh.position.copy(DOOR_POS);
-            scene.add(mesh);
-            const guest = {
-                mesh,
-                state: 'toDesk',
-                timer: 0,
-                room: null,
-                path: null,
-                pathIndex: 0,
-                beingHandled: false,
-            };
-            guests.push(guest);
-            deskQueue.push(guest);
-        }
-
-        // בונה את קטע המדרגות בין קומה fromIdx לקומה fromIdx+1 (שתי נקודות: תחתית ואז ראש)
-        function buildPathToRoom(room) {
-            const roomPos = roomPositions[room];
-            const targetFloor = roomPos.floorIdx;
-            if (targetFloor === 0) {
-                return [{ x: roomPos.x, y: 0, z: roomPos.z }];
-            }
-            return [
-                { x: ELEVATOR_POS.x, y: 0, z: ELEVATOR_POS.z + 3 },
-                { x: roomPos.x, y: FLOOR_HEIGHTS[targetFloor], z: roomPos.z },
-            ];
-        }
-
-        function buildPathToExit(room) {
-            const roomPos = roomPositions[room];
-            const fromFloor = roomPos.floorIdx;
-            const waypoints = [];
-            if (fromFloor > 0) {
-                waypoints.push({ x: ELEVATOR_POS.x, y: 0, z: ELEVATOR_POS.z + 3 });
-            }
-            waypoints.push({ x: DOOR_POS.x, y: 0, z: DOOR_POS.z });
-            return waypoints;
-        }
-
-        function updateGuests(delta) {
-            guests.forEach(g => {
-                if (g.state === 'toDesk') {
-                    const slot = deskQueue.indexOf(g);
-                    const target = slot === -1 ? DESK_WAIT_POS[0] : (DESK_WAIT_POS[slot] || DESK_WAIT_POS[DESK_WAIT_POS.length - 1]);
-                    const dir = new THREE.Vector3().subVectors(target, g.mesh.position);
-                    dir.y = 0;
-                    const dist = dir.length();
-                    if (dist < 0.3) {
-                        if (slot === 0) {
-                            g.state = 'waitingAtDesk';
-                        }
-                    } else {
-                        dir.normalize();
-                        g.mesh.position.addScaledVector(dir, Math.min(0.045, dist));
-                        g.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (g.state === 'toRoom' || g.state === 'toExit') {
-                    const wp = g.path[g.pathIndex];
-                    const dir = new THREE.Vector3(wp.x - g.mesh.position.x, wp.y - g.mesh.position.y, wp.z - g.mesh.position.z);
-                    const dist = dir.length();
-
-                    if (dist < 0.4) {
-                        g.mesh.position.set(wp.x, wp.y, wp.z);
-                        g.pathIndex++;
-                        if (g.pathIndex >= g.path.length) {
-                            if (g.state === 'toRoom') {
-                                g.state = 'inRoom';
-                                g.timer = 6;
-                                g.mesh.rotation.z = Math.PI / 2; // "עולה על המיטה" - פשטני
-                                g.mesh.position.y -= 0.3;
-                            } else {
-                                g.state = 'done';
-                            }
-                        }
-                    } else {
-                        dir.normalize();
-                        g.mesh.position.addScaledVector(dir, Math.min(0.05, dist));
-                        g.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    }
-                } else if (g.state === 'inRoom') {
-                    g.timer -= delta;
-                    if (g.timer <= 0) {
-                        g.mesh.rotation.z = 0;
-                        g.mesh.position.y += 0.3;
-                        occupiedRooms.delete(g.room);
-                        createDirtySpots(g.room);
-                        g.state = 'toExit';
-                        g.path = buildPathToExit(g.room);
-                        g.pathIndex = 0;
-                    }
-                }
-            });
-
-            for (let i = guests.length - 1; i >= 0; i--) {
-                if (guests[i].state === 'done') {
-                    scene.remove(guests[i].mesh);
-                    guests.splice(i, 1);
-                }
-            }
-        }
-
-        function isNearDeskWithGuest() {
-            const d = horizontalDist(playerGroup.position, DESK_POS);
-            return d < 6 && guests.some(g => g.state === 'waitingAtDesk' && !g.beingHandled);
-        }
-
-        let checkinHolding = false;
-        let checkinProgress = 0;
-        const CHECKIN_HOLD_TIME = 2.0; // שניות
-
-        function updateCheckinRing(progress) {
-            const circumference = 263.89;
-            const ring = document.getElementById('checkin-progress');
-            ring.style.strokeDashoffset = circumference * (1 - progress);
-        }
-
-        // ==========================================================
-        // ניקיון חדרים - כשאורח עוזב, נוצרים 3 מקומות מלוכלכים בחדר
-        // וכל עוד לא נוקו כולם, החדר נחשב לא פנוי לאורח חדש
-        // ==========================================================
-        function createDirtySpotMesh() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(90,70,50,0.55)';
-            ctx.beginPath();
-            ctx.ellipse(64, 64, 50, 36, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'rgba(55,40,28,0.5)';
-            ctx.beginPath();
-            ctx.ellipse(42, 50, 20, 13, 0.4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(82, 76, 18, 12, -0.3, 0, Math.PI * 2);
-            ctx.fill();
-            const texture = new THREE.CanvasTexture(canvas);
-            const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.9, 24), new THREE.MeshStandardMaterial({ map: texture, transparent: true, roughness: 0.9 }));
-            mesh.rotation.x = -Math.PI / 2;
-            return mesh;
-        }
-
-        function createDirtySpots(room) {
-            const roomPos = roomPositions[room];
-            const floorH = FLOOR_HEIGHTS[roomPos.floorIdx];
-            const offsets = [
-                { dx: 1.8, dz: 1.3 },
-                { dx: 1.8, dz: -1.3 },
-                { dx: -0.2, dz: 1.5 },
-            ];
-            const spots = offsets.map(off => {
-                const x = roomPos.x + off.dx;
-                const z = roomPos.z + off.dz;
-                const mesh = createDirtySpotMesh();
-                mesh.position.set(x, floorH + 0.03, z);
-                scene.add(mesh);
-                return { mesh, cleaned: false, x, z, y: floorH };
-            });
-            dirtyRooms.set(room, spots);
-        }
-
-        function findNearestDirtySpot() {
-            let best = null, bestDist = Infinity;
-            dirtyRooms.forEach((spots, room) => {
-                spots.forEach(spot => {
-                    if (spot.cleaned) return;
-                    if (Math.abs(playerGroup.position.y - spot.y) > 1.5) return;
-                    const d = horizontalDist(playerGroup.position, spot);
-                    if (d < 2.5 && d < bestDist) {
-                        bestDist = d;
-                        best = { room, spot };
-                    }
-                });
-            });
-            return best;
-        }
-
-        function performClean(room, spot) {
-            spot.cleaned = true;
-            scene.remove(spot.mesh);
-            const spots = dirtyRooms.get(room);
-            if (spots && spots.every(s => s.cleaned)) {
-                dirtyRooms.delete(room);
-                showPrompt(`חדר ${room} נקי לגמרי! ✨`);
-            } else {
-                showPrompt('ניקית מקום מלוכלך! 🧹');
-            }
-        }
-
-        // מחזיר מה הפעולה הזמינה כרגע לשחקן (צ'ק-אין / ניקיון / מילוי נייר טואלט / כלום)
-        function getHoldContext() {
-            if (isNearDeskWithGuest()) return { type: 'checkin' };
-            const found = findNearestDirtySpot();
-            if (found) return { type: 'clean', room: found.room, spot: found.spot };
-            const stall = findNearestEmptyStall();
-            if (stall) return { type: 'restock', stall };
-            return null;
-        }
-
-        function performCheckin() {
-            const waitingGuest = guests.find(g => g.state === 'waitingAtDesk' && !g.beingHandled);
-            if (!waitingGuest) return;
-            const freeRoom = allRoomNumbers.find(r => !occupiedRooms.has(r) && !dirtyRooms.has(r));
-            if (!freeRoom) {
-                showPrompt('אין חדרים פנויים כרגע! 🚫');
-                return;
-            }
-            occupiedRooms.add(freeRoom);
-            const dqIdx = deskQueue.indexOf(waitingGuest);
-            if (dqIdx !== -1) deskQueue.splice(dqIdx, 1);
-            const roomIndex = allRoomNumbers.indexOf(freeRoom);
-            const payment = 25 + roomIndex * 8 + Math.floor(Math.random() * 10);
-            addMoney(payment);
-            showPrompt(`אורח קיבל חדר ${freeRoom}! +${payment} 💵`);
-            guestsServedCount++;
-            saveGame();
-            waitingGuest.room = freeRoom;
-            waitingGuest.path = buildPathToRoom(freeRoom);
-            waitingGuest.pathIndex = 0;
-            waitingGuest.state = 'toRoom';
-        }
-
-        // אפשר להחזיק גם ישירות על כפתור המפתח שעל המסך (עכבר או מגע), בנוסף להחזקת E
-        const checkinButtonEl = document.getElementById('checkin-button');
-        function startCheckinHold(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            checkinHolding = true;
-        }
-        function stopCheckinHold(e) {
-            if (e) e.stopPropagation();
-            checkinHolding = false;
-        }
-        checkinButtonEl.addEventListener('mousedown', startCheckinHold);
-        checkinButtonEl.addEventListener('touchstart', startCheckinHold, { passive: false });
-        checkinButtonEl.addEventListener('mouseup', stopCheckinHold);
-        checkinButtonEl.addEventListener('mouseleave', stopCheckinHold);
-        checkinButtonEl.addEventListener('touchend', stopCheckinHold);
-        checkinButtonEl.addEventListener('touchcancel', stopCheckinHold);
-
-        // --- מערכת תנועה (מקלדת) ---
-        const move = { forward: false, backward: false, left: false, right: false };
-
-        // --- ג'ויסטיק וירטואלי לטלפון/טאבלט ---
-        const joystickBase = document.getElementById('joystick-base');
-        const joystickKnob = document.getElementById('joystick-knob');
-        let joystickTouchId = null;
-        const JOY_MAX = 45;
-
-        function resetJoystick() {
-            joystickKnob.style.top = '';
-            joystickKnob.style.left = '';
-            move.forward = move.backward = move.left = move.right = false;
-        }
-
-        function handleJoystickMove(clientX, clientY) {
-            const rect = joystickBase.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const dx = clientX - cx;
-            const dy = clientY - cy;
-            const rawDist = Math.hypot(dx, dy);
-            const dist = Math.min(JOY_MAX, rawDist);
-            const angle = Math.atan2(dy, dx);
-            const kx = Math.cos(angle) * dist;
-            const ky = Math.sin(angle) * dist;
-            joystickKnob.style.left = (33 + kx) + 'px';
-            joystickKnob.style.top = (33 + ky) + 'px';
-
-            const deadzoneRadius = 15;
-            move.forward = move.backward = move.left = move.right = false;
-            if (rawDist < deadzoneRadius) return;
-
-            // בוחרים רק כיוון אחד דומיננטי (או תנועה או סיבוב) - כדי שסטייה קלה של האצבע
-            // בזמן הליכה קדימה לא תגרום לשחקן להתחיל להסתובב בטעות
-            if (Math.abs(dy) >= Math.abs(dx)) {
-                if (dy < 0) move.forward = true; else move.backward = true;
-            } else {
-                if (dx < 0) move.left = true; else move.right = true;
-            }
-        }
-
-        const joystickEl = document.getElementById('mobile-joystick');
-        joystickEl.addEventListener('touchstart', (e) => {
-            const t = e.changedTouches[0];
-            joystickTouchId = t.identifier;
-            handleJoystickMove(t.clientX, t.clientY);
-            e.preventDefault();
-        }, { passive: false });
-        joystickEl.addEventListener('touchmove', (e) => {
-            for (const t of e.changedTouches) {
-                if (t.identifier === joystickTouchId) {
-                    handleJoystickMove(t.clientX, t.clientY);
-                    e.preventDefault();
-                }
-            }
-        }, { passive: false });
-        joystickEl.addEventListener('touchend', (e) => {
-            for (const t of e.changedTouches) {
-                if (t.identifier === joystickTouchId) {
-                    joystickTouchId = null;
-                    resetJoystick();
-                }
-            }
-        });
-        joystickEl.addEventListener('touchcancel', () => {
-            joystickTouchId = null;
-            resetJoystick();
-        });
-
-        function performTapAction() {
-            if (getHoldContext()) {
-                checkinHolding = true;
-            } else {
-                tryPurchaseGlobalNextRoom();
-                tryPurchaseGlobalNextCleaner();
-                tryPurchaseNextReceptionist();
-                tryTakeToiletPaper();
-                tryPurchaseNextWaiter();
-                tryTakeFood();
-                tryServeFoodToDiner();
-            }
-        }
-
-        // כפתור "פעולה" בטלפון/טאבלט - מבצע רק את פעולות הקנייה/לקיחה (לא צ'ק-אין/ניקוי/מילוי,
-        // שכבר יש להן כפתור החזקה משלהן שתומך גם במגע)
-        document.getElementById('mobile-action-btn').addEventListener('click', () => {
-            if (!getHoldContext()) {
-                tryPurchaseGlobalNextRoom();
-                tryPurchaseGlobalNextCleaner();
-                tryPurchaseNextReceptionist();
-                tryTakeToiletPaper();
-                tryPurchaseNextWaiter();
-                tryTakeFood();
-                tryServeFoodToDiner();
-            }
-        });
-
-        window.addEventListener('keydown', (e) => {
-            switch (e.code) {
-                case 'ArrowUp': case 'KeyW': move.forward = true; break;
-                case 'ArrowDown': case 'KeyS': move.backward = true; break;
-                case 'ArrowLeft': case 'KeyA': move.left = true; break;
-                case 'ArrowRight': case 'KeyD': move.right = true; break;
-                case 'KeyE': performTapAction(); break;
-            }
-        });
-        window.addEventListener('keyup', (e) => {
-            switch (e.code) {
-                case 'ArrowUp': case 'KeyW': move.forward = false; break;
-                case 'ArrowDown': case 'KeyS': move.backward = false; break;
-                case 'ArrowLeft': case 'KeyA': move.left = false; break;
-                case 'ArrowRight': case 'KeyD': move.right = false; break;
-                case 'KeyE': checkinHolding = false; break;
-            }
-        });
-
-        // ==========================================================
-        // שליטה במצלמה עם העכבר (Pointer Lock)
-        // ==========================================================
-        let cameraYaw = 0;                 // סיבוב אופקי של המצלמה סביב השחקן
-        let cameraPitch = 0.4636;           // זווית אנכית (גובה מבט) - מתחיל כמו במקור
-        const mouseSensitivity = 0.0025;
-        const minPitch = 0.1;
-        const maxPitch = 1.3;
-
-        // גרירת עכבר לסיבוב המצלמה - ללא Pointer Lock, כדי שהסמן יישאר גלוי תמיד
-        let isDragging = false;
-
-        container.addEventListener('mousedown', () => {
-            isDragging = true;
-            container.style.cursor = 'grabbing';
-        });
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-            container.style.cursor = 'pointer';
-        });
-        container.addEventListener('mouseleave', () => {
-            isDragging = false;
-            container.style.cursor = 'pointer';
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                cameraYaw -= e.movementX * mouseSensitivity;
-                cameraPitch -= e.movementY * mouseSensitivity;
-                cameraPitch = Math.max(minPitch, Math.min(maxPitch, cameraPitch));
-            }
-        });
-
-        // תמיכה במסכי מגע - גרירה באצבע מסובבת את המצלמה
-        let lastTouchX = 0, lastTouchY = 0;
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                lastTouchX = e.touches[0].clientX;
-                lastTouchY = e.touches[0].clientY;
-            }
-        });
-        container.addEventListener('touchmove', (e) => {
-            if (isDragging && e.touches.length === 1) {
-                const dx = e.touches[0].clientX - lastTouchX;
-                const dy = e.touches[0].clientY - lastTouchY;
-                cameraYaw -= dx * mouseSensitivity;
-                cameraPitch -= dy * mouseSensitivity;
-                cameraPitch = Math.max(minPitch, Math.min(maxPitch, cameraPitch));
-                lastTouchX = e.touches[0].clientX;
-                lastTouchY = e.touches[0].clientY;
-                e.preventDefault();
-            }
-        }, { passive: false });
-        container.addEventListener('touchend', () => { isDragging = false; });
-
-        setTimeout(() => {
-            const loader = document.getElementById('loader');
-            loader.style.opacity = 0;
-            setTimeout(() => loader.remove(), 500);
-        }, 800);
-
-        // --- לולאת המשחק ---
-        const clock = new THREE.Clock();
-        const moveSpeed = 0.12;
-        const rotateSpeed = 0.05;
-        const playerRadius = 0.6;
-        const cameraDistance = 10.8;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-            let elapsedTime = clock.getElapsedTime();
-
-            if (move.left) playerGroup.rotation.y += rotateSpeed;
-            if (move.right) playerGroup.rotation.y -= rotateSpeed;
-
-            if (move.forward || move.backward) {
-                const dist = move.forward ? moveSpeed : -moveSpeed * 0.6;
-                const dir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), playerGroup.rotation.y);
-                const nx = playerGroup.position.x + dir.x * dist;
-                const nz = playerGroup.position.z + dir.z * dist;
-
-                // תזוזה בנפרד לכל ציר, כדי לאפשר "החלקה" לאורך קיר בלי להיתקע
-                if (!collidesWithWall(nx, playerGroup.position.z, playerRadius, playerCurrentFloorIdx)) playerGroup.position.x = nx;
-                if (!collidesWithWall(playerGroup.position.x, nz, playerRadius, playerCurrentFloorIdx)) playerGroup.position.z = nz;
-            }
-
-            if (move.forward) {
-                leftLeg.position.z = Math.sin(elapsedTime * 12) * 0.25;
-                rightLeg.position.z = -Math.sin(elapsedTime * 12) * 0.25;
-                leftShoe.position.z = 0.1 + Math.sin(elapsedTime * 12) * 0.25;
-                rightShoe.position.z = 0.1 - Math.sin(elapsedTime * 12) * 0.25;
-                leftArm.rotation.x = -Math.sin(elapsedTime * 12) * 0.2;
-                rightArm.rotation.x = Math.sin(elapsedTime * 12) * 0.2;
-            } else if (move.backward) {
-                leftLeg.position.z = -Math.sin(elapsedTime * 12) * 0.2;
-                rightLeg.position.z = Math.sin(elapsedTime * 12) * 0.2;
-            } else {
-                leftLeg.position.z = 0;
-                rightLeg.position.z = 0;
-                leftShoe.position.z = 0.1;
-                rightShoe.position.z = 0.1;
-                leftArm.rotation.x = 0;
-                rightArm.rotation.x = 0;
-            }
-
-            const targetY = getFloorHeight(playerGroup.position.x, playerGroup.position.z);
-            playerGroup.position.y += (targetY - playerGroup.position.y) * 0.25;
-
-            // --- עדכון אורחים והכנסת אורחים חדשים ---
-            guestSpawnTimer -= delta;
-            if (guestSpawnTimer <= 0) {
-                spawnGuest();
-                guestSpawnTimer = nextGuestSpawnDelay();
-            }
-            updateGuests(delta);
-            updateCleaners(delta);
-            updateReceptionists(delta);
-            updateToiletVisitors(delta);
-            updateDiners(delta);
-            updateWaiters(delta);
-            toiletStalls.forEach(s => { if (s.indicatorMesh.visible) s.indicatorMesh.lookAt(camera.position); });
-
-            // --- מעלית: נכנסים אליה ונפתח תפריט קומות אוטומטית (יש מעלית בכל קומה) ---
-            const distToGroundElevator = horizontalDist(playerGroup.position, ELEVATOR_POS);
-            const distToFloorElevator = horizontalDist(playerGroup.position, FLOOR_LANDING_POS);
-            const nearElevator = (playerCurrentFloorIdx === 0 && distToGroundElevator < 2) ||
-                                  (playerCurrentFloorIdx >= 1 && distToFloorElevator < 2);
-            const farFromElevator = distToGroundElevator > 3 && distToFloorElevator > 3;
-            if (farFromElevator) {
-                elevatorArmed = true; // יצאנו מטווח המעלית - מותר לפתוח שוב בפעם הבאה
-            }
-            if (nearElevator && elevatorArmed) {
-                openElevatorMenu();
-            } else if (elevatorMenuOpen && farFromElevator) {
-                closeElevatorMenu();
-            }
-
-            // --- כפתור החזקה (צ'ק-אין ליד הדלפק / ניקוי חדר / מילוי נייר טואלט) ---
-            const holdContext = getHoldContext();
-            document.getElementById('checkin-button').classList.toggle('hidden', !holdContext);
-            document.getElementById('checkin-icon').textContent = holdContext
-                ? (holdContext.type === 'clean' ? '🧹' : holdContext.type === 'restock' ? '🧻' : '🔑')
-                : '🔑';
-            if (holdContext && checkinHolding) {
-                checkinProgress = Math.min(1, checkinProgress + delta / CHECKIN_HOLD_TIME);
-                if (checkinProgress >= 1) {
-                    if (holdContext.type === 'checkin') {
-                        performCheckin();
-                    } else if (holdContext.type === 'clean') {
-                        performClean(holdContext.room, holdContext.spot);
-                    } else if (holdContext.type === 'restock') {
-                        performRestock(holdContext.stall);
-                    }
-                    checkinProgress = 0;
-                    checkinHolding = false;
-                }
-            } else {
-                checkinProgress = Math.max(0, checkinProgress - delta * 3);
-            }
-            updateCheckinRing(checkinProgress);
-            document.getElementById('guests-waiting').textContent = guests.filter(g => g.state === 'waitingAtDesk').length;
-
-            // מצלמה שנשלטת לחלוטין ע"י העכבר (יאו + פיץ' סביב השחקן)
-            const targetCamX = playerGroup.position.x - Math.sin(cameraYaw) * cameraDistance * Math.cos(cameraPitch);
-            const targetCamZ = playerGroup.position.z - Math.cos(cameraYaw) * cameraDistance * Math.cos(cameraPitch);
-            const targetCamY = playerGroup.position.y + 1 + cameraDistance * Math.sin(cameraPitch);
-
-            camera.position.x += (targetCamX - camera.position.x) * 0.15;
-            camera.position.y += (targetCamY - camera.position.y) * 0.15;
-            camera.position.z += (targetCamZ - camera.position.z) * 0.15;
-
-            camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1.8, playerGroup.position.z);
-
-            renderer.render(scene, camera);
-        }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        animate();
-    </script>
+  </div>
+</section>
+
+<section class="page" id="library">
+  <div class="page-wrap">
+    <h2 class="page-title">ספרים</h2>
+    <p class="page-sub">ספריית הספרים שלנו</p>
+    <div class="grid" id="libraryGrid"></div>
+  </div>
+</section>
+
+<section class="page" id="bookmarks">
+  <div class="page-wrap">
+    <h2 class="page-title">תצוגת סימניות</h2>
+    <p class="page-sub">הספרים ששמרתם לסימניה</p>
+    <div class="grid" id="bookmarksGrid"></div>
+  </div>
+</section>
+
+<section class="page" id="addbook">
+  <div class="page-wrap">
+    <h2 class="page-title">מלאו טפסים</h2>
+    <p class="page-sub">הציעו ספר חדש לאישור מנהל האתר</p>
+    <div class="toast" id="addToast"></div>
+    <form id="addBookForm">
+      <label>שם הספר
+        <input type="text" id="bookTitle" required>
+      </label>
+      <label>שם הסופר/ת
+        <input type="text" id="bookAuthor" required>
+      </label>
+      <label>תיאור קצר
+        <textarea id="bookDesc" required></textarea>
+      </label>
+      <label>צבע כריכה
+        <div class="color-row" id="colorRow"></div>
+      </label>
+      <button type="submit" class="submit-btn" id="addBookSubmitBtn">שלחו לאישור</button>
+    </form>
+  </div>
+</section>
+
+<section class="page" id="contact">
+  <div class="page-wrap">
+    <h2 class="page-title">צרו קשר</h2>
+    <p class="page-sub">נשמח לשמוע מכם</p>
+    <div class="toast" id="contactToast"></div>
+    <form id="contactForm">
+      <label>שם מלא
+        <input type="text" id="contactName" required>
+      </label>
+      <label>אימייל
+        <input type="email" id="contactEmail" required>
+      </label>
+      <label>הודעה
+        <textarea id="contactMsg" required></textarea>
+      </label>
+      <button type="submit" class="submit-btn">שלחו הודעה</button>
+    </form>
+  </div>
+</section>
+
+<script>
+(function(){
+  const COLORS = [
+    ['#1f4fa0','#3a72c9'],
+    ['#d98c2b','#f0ac4e'],
+    ['#3a8f5c','#5cba82'],
+    ['#a03a5f','#c9648a'],
+    ['#6a4a9e','#8f6dc4'],
+    ['#4a4a4a','#6f6f6f']
+  ];
+
+  const defaultBooks = [];
+
+  function loadBooks(){
+    const raw = localStorage.getItem('otveod_books_v2');
+    if(!raw){
+      localStorage.setItem('otveod_books_v2', JSON.stringify(defaultBooks));
+      return defaultBooks.slice();
+    }
+    try{ return JSON.parse(raw); }catch(e){ return defaultBooks.slice(); }
+  }
+  function saveBooks(books){ localStorage.setItem('otveod_books_v2', JSON.stringify(books)); }
+
+  function loadBookmarks(){
+    const raw = localStorage.getItem('otveod_bookmarks_v2');
+    try{ return raw ? JSON.parse(raw) : []; }catch(e){ return []; }
+  }
+  function saveBookmarks(list){ localStorage.setItem('otveod_bookmarks_v2', JSON.stringify(list)); }
+
+  let books = loadBooks();
+  let bookmarks = loadBookmarks();
+
+  function renderCount(){
+    document.getElementById('bookCount').textContent = books.length;
+  }
+
+  function bookCardHTML(book, isBookmarked){
+    const c = COLORS[book.color % COLORS.length];
+    return `
+      <div class="card" data-id="${book.id}">
+        <svg class="cover" viewBox="0 0 70 100">
+          <rect width="70" height="100" rx="3" fill="${c[0]}"/>
+          <rect width="12" height="100" rx="3" fill="${c[1]}"/>
+        </svg>
+        <h3>${escapeHTML(book.title)}</h3>
+        <p>${escapeHTML(book.author)}</p>
+        <div class="desc">${escapeHTML(book.desc)}</div>
+        <button class="star-btn ${isBookmarked ? 'active':''}" data-id="${book.id}">
+          ${isBookmarked ? '★ הסירו מהסימניות' : '☆ הוסיפו לסימניות'}
+        </button>
+      </div>`;
+  }
+
+  function escapeHTML(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderLibrary(){
+    const grid = document.getElementById('libraryGrid');
+    if(books.length === 0){
+      grid.innerHTML = '<div class="empty">אין עדיין ספרים בספרייה. הוסיפו את הראשון!</div>';
+      return;
+    }
+    grid.innerHTML = books.map(b => bookCardHTML(b, bookmarks.includes(b.id))).join('');
+    grid.querySelectorAll('.star-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.dataset.id);
+        toggleBookmark(id);
+      });
+    });
+  }
+
+  function renderBookmarks(){
+    const grid = document.getElementById('bookmarksGrid');
+    const marked = books.filter(b => bookmarks.includes(b.id));
+    if(marked.length === 0){
+      grid.innerHTML = '<div class="empty">עדיין לא סימנתם ספרים. בקרו בספרייה כדי להוסיף סימניות.</div>';
+      return;
+    }
+    grid.innerHTML = marked.map(b => bookCardHTML(b, true)).join('');
+    grid.querySelectorAll('.star-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = Number(btn.dataset.id);
+        toggleBookmark(id);
+        renderBookmarks();
+      });
+    });
+  }
+
+  function toggleBookmark(id){
+    if(bookmarks.includes(id)){
+      bookmarks = bookmarks.filter(x => x !== id);
+    } else {
+      bookmarks.push(id);
+    }
+    saveBookmarks(bookmarks);
+    renderLibrary();
+  }
+
+  function renderColorRow(){
+    const row = document.getElementById('colorRow');
+    row.innerHTML = COLORS.map((c,i)=>
+      `<div class="color-dot ${i===0?'selected':''}" data-i="${i}" style="background:${c[0]}"></div>`
+    ).join('');
+    row.querySelectorAll('.color-dot').forEach(dot=>{
+      dot.addEventListener('click', ()=>{
+        row.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));
+        dot.classList.add('selected');
+      });
+    });
+  }
+
+  function selectedColorIndex(){
+    const sel = document.querySelector('#colorRow .color-dot.selected');
+    return sel ? Number(sel.dataset.i) : 0;
+  }
+
+  const pages = document.querySelectorAll('.page');
+  function showPage(name){
+    pages.forEach(p => p.classList.toggle('active', p.id === name));
+    if(name === 'library') renderLibrary();
+    if(name === 'bookmarks') renderBookmarks();
+    closeMenu();
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll('[data-page]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.preventDefault();
+      showPage(el.dataset.page);
+      history.replaceState(null,'','#'+el.dataset.page);
+    });
+  });
+
+  function routeFromHash(){
+    const h = location.hash.replace('#','') || 'home';
+    const valid = ['home','library','bookmarks','addbook','contact'];
+    showPage(valid.includes(h) ? h : 'home');
+  }
+  window.addEventListener('hashchange', routeFromHash);
+
+  const menuBtn = document.getElementById('menuBtn');
+  const menuPanel = document.getElementById('menuPanel');
+  const overlay = document.getElementById('overlay');
+  function closeMenu(){
+    menuBtn.classList.remove('open');
+    menuPanel.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+  menuBtn.addEventListener('click', ()=>{
+    const open = !menuPanel.classList.contains('open');
+    menuBtn.classList.toggle('open', open);
+    menuPanel.classList.toggle('open', open);
+    overlay.classList.toggle('open', open);
+  });
+  overlay.addEventListener('click', closeMenu);
+
+  renderColorRow();
+
+  document.getElementById('addBookForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const submitBtn = document.getElementById('addBookSubmitBtn');
+    submitBtn.textContent = 'שולח בקשה...';
+    submitBtn.disabled = true;
+
+    const title = document.getElementById('bookTitle').value.trim();
+    const author = document.getElementById('bookAuthor').value.trim();
+    const desc = document.getElementById('bookDesc').value.trim();
+    const color = selectedColorIndex();
+
+    const templateParams = {
+      title: title,
+      author: author,
+      desc: desc,
+      color: color
+    };
+
+    emailjs.send('service_tomyshi', 'template_xyeyjla', templateParams)
+      .then(() => {
+        const toast = document.getElementById('addToast');
+        toast.textContent = 'הצעת הספר נשלחה בהצלחה לאישור המנהל!';
+        toast.classList.remove('error');
+        toast.classList.add('show');
+        
+        e.target.reset();
+        renderColorRow();
+        
+        setTimeout(()=> toast.classList.remove('show'), 4000);
+      })
+      .catch((error) => {
+        console.error('EmailJS Error:', error);
+        const toast = document.getElementById('addToast');
+        toast.textContent = 'שגיאה בשליחת הבקשה. אנא ודא שהגדרת את ה-Public Key ואת ה-Template ID הנכון בקוד.';
+        toast.classList.add('error', 'show');
+        setTimeout(()=> toast.classList.remove('show'), 5000);
+      })
+      .finally(() => {
+        submitBtn.textContent = 'שלחו לאישור';
+        submitBtn.disabled = false;
+      });
+  });
+
+  document.getElementById('contactForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const name = document.getElementById('contactName').value.trim();
+    const email = document.getElementById('contactEmail').value.trim();
+    const msg = document.getElementById('contactMsg').value.trim();
+    const raw = localStorage.getItem('otveod_messages');
+    const list = raw ? JSON.parse(raw) : [];
+    list.push({name, email, msg, date: new Date().toISOString()});
+    localStorage.setItem('otveod_messages', JSON.stringify(list));
+    e.target.reset();
+    const toast = document.getElementById('contactToast');
+    toast.textContent = 'ההודעה נשלחה בהצלחה!';
+    toast.classList.add('show');
+    setTimeout(()=> toast.classList.remove('show'), 2500);
+  });
+
+  function checkApprovalURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('approve') === 'true') {
+      const title = urlParams.get('title');
+      const author = urlParams.get('author');
+      const desc = urlParams.get('desc');
+      const color = parseInt(urlParams.get('color')) || 0;
+
+      if (title && author) {
+        const approve = confirm(`התקבלה בקשה להוספת ספר חדש!\n\nשם הספר: ${title}\nסופר: ${author}\nתיאור: ${desc}\n\nהאם לאשר ולהוסיף אותו לספרייה?`);
+        if (approve) {
+          const newBook = { id: Date.now(), title, author, desc, color };
+          books.push(newBook);
+          saveBooks(books);
+          renderCount();
+          renderLibrary();
+          alert('הספר אושר ונוסף בהצלחה!');
+        }
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+      }
+    }
+  }
+
+  renderCount();
+  routeFromHash();
+  checkApprovalURL();
+})();
+</script>
 </body>
 </html>
