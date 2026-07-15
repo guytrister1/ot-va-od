@@ -257,6 +257,9 @@
       <label>תיאור קצר
         <textarea id="bookDesc" required></textarea>
       </label>
+      <label>קישור לספר וירטואלי (אופציונלי)
+        <input type="url" id="bookLink" placeholder="https://...">
+      </label>
       <label>צבע כריכה
         <div class="color-row" id="colorRow"></div>
       </label>
@@ -320,6 +323,9 @@
 
   function bookCardHTML(book, isBookmarked){
     const c = COLORS[book.color % COLORS.length];
+    const linkHTML = book.link
+      ? `<a href="${escapeHTML(book.link)}" target="_blank" rel="noopener" class="star-btn" style="text-decoration:none;">קריאת הספר הוירטואלי</a>`
+      : '';
     return `
       <div class="card" data-id="${book.id}">
         <svg class="cover" viewBox="0 0 70 100">
@@ -329,6 +335,7 @@
         <h3>${escapeHTML(book.title)}</h3>
         <p>${escapeHTML(book.author)}</p>
         <div class="desc">${escapeHTML(book.desc)}</div>
+        ${linkHTML}
         <button class="star-btn ${isBookmarked ? 'active':''}" data-id="${book.id}">
           ${isBookmarked ? '★ הסירו מהסימניות' : '☆ הוסיפו לסימניות'}
         </button>
@@ -451,18 +458,20 @@
     const title = document.getElementById('bookTitle').value.trim();
     const author = document.getElementById('bookAuthor').value.trim();
     const desc = document.getElementById('bookDesc').value.trim();
+    const link = document.getElementById('bookLink').value.trim();
     const color = selectedColorIndex();
 
     const templateParams = {
       title: title,
       author: author,
       desc: desc,
-      color: color
+      color: color,
+      link: link
     };
 
     // שמירת ההצעה גם ב-Firebase כדי שתופיע במסך הניהול לאישור
     firebase.database().ref('suggestions').push({
-      title, author, desc, color, date: new Date().toISOString()
+      title, author, desc, color, link, date: new Date().toISOString()
     });
 
     emailjs.send('service_tomyshi', 'template_xyeyjla', templateParams)
